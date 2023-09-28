@@ -1,0 +1,94 @@
+# depslib dependency file v1.0
+1695920038 source:/home/nounours/projects/fuse/oberon/oberon.c
+	<fuse.h>
+	<stdio.h>
+	<string.h>
+	<errno.h>
+	<fcntl.h>
+	<stddef.h>
+	<assert.h>
+	<fcntl.h>
+	<sys/types.h>
+	<unistd.h>
+	"Modules.h"
+	"FileDir.h"
+
+1691489703 /usr/include/fuse3/fuse.h
+	"fuse_common.h"
+	<fcntl.h>
+	<time.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<sys/statvfs.h>
+	<sys/uio.h>
+
+1691489703 /usr/include/fuse3/fuse_common.h
+	"fuse_config.h"
+	"libfuse_config.h"
+	"fuse_opt.h"
+	"fuse_log.h"
+	<stdint.h>
+	<sys/types.h>
+
+1695824382 /usr/include/fuse3/libfuse_config.h
+
+1691489703 /usr/include/fuse3/fuse_opt.h
+
+1691489703 /usr/include/fuse3/fuse_log.h
+	<stdarg.h>
+
+1695916308 /home/nounours/projects/oberon_fs/Modules.h
+
+1695916363 source:/home/nounours/projects/oberon_fs/Modules.c
+	"Modules.h"
+	"Files.h"
+
+1695714889 /home/nounours/projects/oberon_fs/Files.h
+
+1695715731 source:/home/nounours/projects/oberon_fs/Files.c
+	"Files.h"
+	"Kernel.h"
+	"FileDir.h"
+
+1695721759 /home/nounours/projects/oberon_fs/Kernel.h
+	<stdint.h>
+
+1695917711 /home/nounours/projects/oberon_fs/FileDir.h
+	<stdint.h>
+	<stdbool.h>
+
+1695802076 source:/home/nounours/projects/oberon_fs/Kernel.c
+	<stdint.h>
+	<assert.h>
+	<sys/types.h>
+	<unistd.h>
+	"Kernel.h"
+	"Modules.h"
+
+1695804333 source:/home/nounours/projects/oberon_fs/FileDir.c
+	<assert.h>
+	"FileDir.h"
+	"Kernel.h"
+
+1695917777 source:/home/nounours/projects/fuse/oberon/FileDir.c
+	<assert.h>
+	"FileDir.h"
+	"Kernel.h"
+
+1695715731 source:/home/nounours/projects/fuse/oberon/Files.c
+	"Files.h"
+	"Kernel.h"
+	"FileDir.h"
+
+1695802076 source:/home/nounours/projects/fuse/oberon/Kernel.c
+	<stdint.h>
+	<assert.h>
+	<sys/types.h>
+	<unistd.h>
+	"Kernel.h"
+	"Modules.h"
+
+1695916363 source:/home/nounours/projects/fuse/oberon/Modules.c
+	"Modules.h"
+	"Files.h"
+
