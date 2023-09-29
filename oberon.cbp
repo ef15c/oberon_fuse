@@ -38,6 +38,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename=".gitignore" />
 		<Unit filename="FileDir.c">
 			<Option compilerVar="CC" />
 		</Unit>

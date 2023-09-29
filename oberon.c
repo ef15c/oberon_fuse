@@ -34,6 +34,7 @@
 
 #include "Modules.h"
 #include "FileDir.h"
+#include "Kernel.h"
 
 /*
  * Command line options
@@ -71,25 +72,57 @@ static void *oberon_init(struct fuse_conn_info *conn,
 	return NULL;
 }
 
+static time_t ClockToTime(int t)
+{
+/**
+    WritePair(W, " ", d DIV 20000H MOD 20H);   (*day*)
+    WritePair(W, ".", d DIV 400000H MOD 10H); (*month*)
+    WritePair(W, ".", d DIV 4000000H MOD 40H);   (*year*)
+    WritePair(W, " ", d DIV 1000H MOD 20H);   (*hour*)
+    WritePair(W, ":", d DIV 40H MOD 40H);  (*min*)
+    WritePair(W, ":", d MOD 40H)  (*sec*)
+
+    ex. : 11.12.18 17:32:24
+*/
+    struct tm date;
+
+    date.tm_mday = t / 0x20000 % 0x20; /* day */
+    date.tm_mon  = t / 0x400000 % 0x10 - 1; /* month - 1 */
+    date.tm_year = t / 0x4000000 % 0x40 + 100; /* year - 1900 */
+    date.tm_hour = t / 0x1000 % 0x20; /* hour */
+    date.tm_min  = t / 0x40 % 0x40; /* min */
+    date.tm_sec  = t % 0x40; /* sec */
+
+    return mktime(&date);
+}
+
 static int oberon_getattr(const char *path, struct stat *stbuf,
 			 struct fuse_file_info *fi)
 {
 	(void) fi;
 	int res = 0;
 
+	int adr;
+
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-#ifdef TODO
-	} else if (strcmp(path+1, options.filename) == 0) {
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(options.contents);
-#endif // TODO
-	} else
-		res = -ENOENT;
+	} else  {
+        FileDir_Search(path+1, &adr);
+        if (adr) {
+            FileDir_FileHeader hp;
 
+            Kernel_GetSector(adr, (uint8_t *) &hp);
+
+            stbuf->st_mode = S_IFREG | 0444;
+            stbuf->st_nlink = 1;
+            stbuf->st_size = hp.aleng*FileDir_SectorSize + hp.bleng - FileDir_HeaderSize /* length */;
+            stbuf->st_mtim.tv_sec = ClockToTime(hp.date);
+        } else {
+            res = -ENOENT;
+        }
+    }
 	return res;
 }
 
