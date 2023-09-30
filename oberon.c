@@ -31,10 +31,12 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "Modules.h"
 #include "FileDir.h"
 #include "Kernel.h"
+#include "Files.h"
 
 /*
  * Command line options
@@ -164,11 +166,24 @@ static int oberon_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 #ifdef CONTENT_SUPPORT
 static int oberon_open(const char *path, struct fuse_file_info *fi)
 {
-	if (strcmp(path+1, options.filename) != 0)
+    Files_File f;
+    Files_Rider *Rf;
+
+    f = Files_Old(path+1);
+
+    if (f == NULL) {
 		return -ENOENT;
+    }
 
 	if ((fi->flags & O_ACCMODE) != O_RDONLY)
 		return -EACCES;
+
+    Rf = malloc(sizeof *Rf);
+    assert(Rf);
+
+    Files_Set(Rf, f, 0);
+
+    fi->fh = (uint64_t) Rf;
 
 	return 0;
 }
@@ -176,22 +191,35 @@ static int oberon_open(const char *path, struct fuse_file_info *fi)
 static int oberon_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
-	size_t len;
-	(void) fi;
-	if(strcmp(path+1, options.filename) != 0)
-		return -ENOENT;
+	int i;
+    Files_Rider *Rf;
+    char ch;
 
-	len = strlen(options.contents);
-	if (offset < len) {
-		if (offset + size > len)
-			size = len - offset;
-		memcpy(buf, options.contents + offset, size);
-	} else
-		size = 0;
+    assert(fi);
+    Rf = (Files_Rider *) fi->fh;
+    assert(Rf);
 
-	return size;
+    Files_Reset(Rf, offset);
+    Files_Read(Rf, &ch);
+    i = 0;
+    while (!Rf->eof && i<size) { buf[i++] = ch; Files_Read(Rf, &ch); }
+
+	return i;
 }
 #endif // CONTENT_SUPPORT
+
+int oberon_release (const char *path, struct fuse_file_info *fi)
+{
+    Files_Rider *Rf;
+
+    assert(fi);
+    Rf = (Files_Rider *) fi->fh;
+    assert(Rf);
+
+    Files_Unset(Rf);
+
+    return 0;
+}
 
 static const struct fuse_operations oberon_oper = {
 	.init       = oberon_init,
@@ -200,6 +228,7 @@ static const struct fuse_operations oberon_oper = {
 #ifdef CONTENT_SUPPORT
 	.open		= oberon_open,
 	.read		= oberon_read,
+	.release    = oberon_release,
 #endif // CONTENT_SUPPORT
 };
 
@@ -234,13 +263,14 @@ int main(int argc, char *argv[])
             printf("Missing mandatory --image=<oberon image> parameter\n");
             return 2;
         }
+
+        oberon_fs_file_desc = open(options.oberon_image, O_RDONLY);
+        if (oberon_fs_file_desc < 0) {
+            printf("Unable to open file %s for read\n", options.oberon_image);
+            return 3;
+        }
 	}
 
-	oberon_fs_file_desc = open(options.oberon_image, O_RDONLY);
-    if (oberon_fs_file_desc < 0) {
-        printf("Unable to open file %s for read\n", options.oberon_image);
-        return 3;
-    }
 
 	ret = fuse_main(args.argc, args.argv, &oberon_oper, NULL);
 	fuse_opt_free_args(&args);
