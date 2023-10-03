@@ -48,6 +48,7 @@
 static struct options {
 	int show_help;
 	const char *oberon_image;
+	int oberon_image_offset;
 } options;
 
 int oberon_fs_file_desc = -1;
@@ -56,6 +57,7 @@ int oberon_fs_file_desc = -1;
     { t, offsetof(struct options, p), 1 }
 static const struct fuse_opt option_spec[] = {
     OPTION("--image=%s", oberon_image),
+    OPTION("--offset=%d", oberon_image_offset),
 	OPTION("-h", show_help),
 	OPTION("--help", show_help),
 	FUSE_OPT_END
@@ -68,7 +70,8 @@ static void *oberon_init(struct fuse_conn_info *conn,
 
 	cfg->kernel_cache = 1;
 
-	Modules_Set_OberonFS_fd(oberon_fs_file_desc);
+	Modules_Set_OberonFS_image(oberon_fs_file_desc, options.oberon_image_offset);
+
     Modules_Init();
 
 	return NULL;
@@ -108,7 +111,7 @@ static int oberon_getattr(const char *path, struct stat *stbuf,
 
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_mode = S_IFDIR | 0777;
 		stbuf->st_nlink = 2;
 	} else  {
         FileDir_Search(path+1, &adr);
@@ -117,7 +120,7 @@ static int oberon_getattr(const char *path, struct stat *stbuf,
 
             Kernel_GetSector(adr, (uint8_t *) &hp);
 
-            stbuf->st_mode = S_IFREG | 0444;
+            stbuf->st_mode = S_IFREG | 0666;
             stbuf->st_nlink = 1;
             stbuf->st_size = hp.aleng*FileDir_SectorSize + hp.bleng - FileDir_HeaderSize /* length */;
             stbuf->st_mtim.tv_sec = ClockToTime(hp.date);
@@ -163,7 +166,6 @@ static int oberon_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return 0;
 }
 
-#ifdef CONTENT_SUPPORT
 static int oberon_open(const char *path, struct fuse_file_info *fi)
 {
     Files_File f;
@@ -174,9 +176,6 @@ static int oberon_open(const char *path, struct fuse_file_info *fi)
     if (f == NULL) {
 		return -ENOENT;
     }
-
-	if ((fi->flags & O_ACCMODE) != O_RDONLY)
-		return -EACCES;
 
     Rf = malloc(sizeof *Rf);
     assert(Rf);
@@ -206,30 +205,75 @@ static int oberon_read(const char *path, char *buf, size_t size, off_t offset,
 
 	return i;
 }
-#endif // CONTENT_SUPPORT
 
-int oberon_release (const char *path, struct fuse_file_info *fi)
+static int oberon_write(const char *path, const char *buf, size_t size,
+		     off_t offset, struct fuse_file_info *fi)
 {
+    int i;
     Files_Rider *Rf;
 
     assert(fi);
     Rf = (Files_Rider *) fi->fh;
     assert(Rf);
 
+    Files_Reset(Rf, offset);
+    i = 0;
+    while (i<size) Files_Write(Rf, buf[i++]);
+
+    return i;
+}
+
+int oberon_release (const char *path, struct fuse_file_info *fi)
+{
+    Files_Rider *Rf;
+    Files_File f;
+
+    assert(fi);
+    Rf = (Files_Rider *) fi->fh;
+    assert(Rf);
+
+    f = Files_Base(Rf);
+    assert(f);
+
+    Files_Register(f);
+
     Files_Unset(Rf);
 
     return 0;
+}
+
+
+static int oberon_create(const char *path, mode_t mode,
+		      struct fuse_file_info *fi)
+{
+    Files_File f;
+    Files_Rider *Rf;
+
+    f = Files_New(path+1);
+
+    if (f == NULL) {
+		return -ENOENT;
+    }
+
+    Rf = malloc(sizeof *Rf);
+    assert(Rf);
+
+    Files_Set(Rf, f, 0);
+
+    fi->fh = (uint64_t) Rf;
+
+	return 0;
 }
 
 static const struct fuse_operations oberon_oper = {
 	.init       = oberon_init,
 	.getattr	= oberon_getattr,
 	.readdir	= oberon_readdir,
-#ifdef CONTENT_SUPPORT
 	.open		= oberon_open,
 	.read		= oberon_read,
+	.write      = oberon_write,
 	.release    = oberon_release,
-#endif // CONTENT_SUPPORT
+	.create     = oberon_create,
 };
 
 static void show_help(const char *progname)
@@ -264,7 +308,7 @@ int main(int argc, char *argv[])
             return 2;
         }
 
-        oberon_fs_file_desc = open(options.oberon_image, O_RDONLY);
+        oberon_fs_file_desc = open(options.oberon_image, O_RDWR);
         if (oberon_fs_file_desc < 0) {
             printf("Unable to open file %s for read\n", options.oberon_image);
             return 3;

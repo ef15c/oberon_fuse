@@ -34,9 +34,25 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
+			<Target title="RISCW32">
+				<Option output="bin/Debug/oberon" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option parameters="-d --offset=-1024 --image=/home/nounours/Documents/Oberon/sources/RISCW32/.OBERON.FS /home/nounours/fuse" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="`pkgconf --cflags fuse3`" />
+					<Add directory="../../oberon_fs" />
+				</Compiler>
+				<Linker>
+					<Add option="`pkgconf --libs fuse3`" />
+				</Linker>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-DCONTENT_SUPPORT" />
 		</Compiler>
 		<Unit filename=".gitignore" />
 		<Unit filename="FileDir.c">

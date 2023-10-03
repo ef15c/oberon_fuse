@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1696094325 source:/home/nounours/projects/fuse/oberon/oberon.c
+1696353985 source:/home/nounours/projects/fuse/oberon/oberon.c
 	<fuse.h>
 	<stdio.h>
 	<string.h>
@@ -40,13 +40,13 @@
 1691489703 /usr/include/fuse3/fuse_log.h
 	<stdarg.h>
 
-1695916308 /home/nounours/projects/oberon_fs/Modules.h
+1696250061 /home/nounours/projects/oberon_fs/Modules.h
 
 1695916363 source:/home/nounours/projects/oberon_fs/Modules.c
 	"Modules.h"
 	"Files.h"
 
-1696069964 /home/nounours/projects/oberon_fs/Files.h
+1696352619 /home/nounours/projects/oberon_fs/Files.h
 	<stdbool.h>
 
 1695715731 source:/home/nounours/projects/oberon_fs/Files.c
@@ -54,10 +54,10 @@
 	"Kernel.h"
 	"FileDir.h"
 
-1695721759 /home/nounours/projects/oberon_fs/Kernel.h
+1696280340 /home/nounours/projects/oberon_fs/Kernel.h
 	<stdint.h>
 
-1696002058 /home/nounours/projects/oberon_fs/FileDir.h
+1696283665 /home/nounours/projects/oberon_fs/FileDir.h
 	<stdint.h>
 	<stdbool.h>
 
@@ -74,13 +74,13 @@
 	"FileDir.h"
 	"Kernel.h"
 
-1695970654 source:/home/nounours/projects/fuse/oberon/FileDir.c
+1696326684 source:/home/nounours/projects/fuse/oberon/FileDir.c
 	<assert.h>
 	<string.h>
 	"FileDir.h"
 	"Kernel.h"
 
-1696070320 source:/home/nounours/projects/fuse/oberon/Files.c
+1696352723 source:/home/nounours/projects/fuse/oberon/Files.c
 	<stdlib.h>
 	<assert.h>
 	<string.h>
@@ -88,15 +88,16 @@
 	"Kernel.h"
 	"FileDir.h"
 
-1695802076 source:/home/nounours/projects/fuse/oberon/Kernel.c
+1696317153 source:/home/nounours/projects/fuse/oberon/Kernel.c
 	<stdint.h>
 	<assert.h>
 	<sys/types.h>
 	<unistd.h>
+	<time.h>
 	"Kernel.h"
 	"Modules.h"
 
-1695916363 source:/home/nounours/projects/fuse/oberon/Modules.c
+1696250174 source:/home/nounours/projects/fuse/oberon/Modules.c
 	"Modules.h"
 	"Files.h"
 
