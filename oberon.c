@@ -235,7 +235,7 @@ int oberon_release (const char *path, struct fuse_file_info *fi)
     f = Files_Base(Rf);
     assert(f);
 
-    Files_Register(f);
+    Files_Close(f);
 
     Files_Unset(Rf);
 
@@ -255,12 +255,25 @@ static int oberon_create(const char *path, mode_t mode,
 		return -ENOENT;
     }
 
+    Files_Register(f);
+
     Rf = malloc(sizeof *Rf);
     assert(Rf);
 
     Files_Set(Rf, f, 0);
 
     fi->fh = (uint64_t) Rf;
+
+	return 0;
+}
+
+static int oberon_unlink(const char *path)
+{
+	int res;
+
+	Files_Delete(path+1, &res);
+	if (res != 0)
+		return -ENOENT;
 
 	return 0;
 }
@@ -274,13 +287,24 @@ static const struct fuse_operations oberon_oper = {
 	.write      = oberon_write,
 	.release    = oberon_release,
 	.create     = oberon_create,
+	.unlink     = oberon_unlink,
 };
 
 static void show_help(const char *progname)
 {
 	printf("usage: %s [options] --image=<oberon image> <mountpoint>\n\n", progname);
 	printf("File-system specific options:\n"
-	       "    --image=<file name>    Name of the oberon image file\n"
+	       "    --image=<file name>      Name of the oberon image file\n"
+	       "    --offset=<signed value>  Number of bytes of offset to the\n"
+	       "                             beginning of the file system.\n"
+	       "\n"
+	       "                             0 means that the directory root\n"
+	       "                             is located ad address 0x400.\n"
+	       "\n"
+	       "                             The RISCW32 emulator images have\n"
+	       "                             their directory root located at 0x0\n"
+	       "                             so offset equal to -1024 must be\n"
+	       "                             specified\n"
 	       "\n");
 }
 

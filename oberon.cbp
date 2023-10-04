@@ -14,12 +14,7 @@
 				<Option parameters="-d --image=oberon_fs.img /home/nounours/fuse" />
 				<Compiler>
 					<Add option="-g" />
-					<Add option="`pkgconf --cflags fuse3`" />
-					<Add directory="../../oberon_fs" />
 				</Compiler>
-				<Linker>
-					<Add option="`pkgconf --libs fuse3`" />
-				</Linker>
 			</Target>
 			<Target title="Release">
 				<Option output="bin/Release/oberon" prefix_auto="1" extension_auto="1" />
@@ -52,8 +47,12 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-DCONTENT_SUPPORT" />
+			<Add option="`pkgconf --cflags fuse3`" />
+			<Add directory="../../oberon_fs" />
 		</Compiler>
+		<Linker>
+			<Add option="`pkgconf --libs fuse3`" />
+		</Linker>
 		<Unit filename=".gitignore" />
 		<Unit filename="FileDir.c">
 			<Option compilerVar="CC" />
