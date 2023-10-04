@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1696422383 source:/home/nounours/projects/fuse/oberon/oberon.c
+1696450678 source:/home/nounours/projects/fuse/oberon/oberon.c
 	<fuse.h>
 	<stdio.h>
 	<string.h>
@@ -46,7 +46,7 @@
 	"Modules.h"
 	"Files.h"
 
-1696422499 /home/nounours/projects/oberon_fs/Files.h
+1696442274 /home/nounours/projects/oberon_fs/Files.h
 	<stdbool.h>
 
 1695715731 source:/home/nounours/projects/oberon_fs/Files.c
@@ -80,7 +80,7 @@
 	"FileDir.h"
 	"Kernel.h"
 
-1696422593 source:/home/nounours/projects/fuse/oberon/Files.c
+1696450395 source:/home/nounours/projects/fuse/oberon/Files.c
 	<stdlib.h>
 	<assert.h>
 	<string.h>

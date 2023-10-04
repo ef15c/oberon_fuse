@@ -239,6 +239,8 @@ int oberon_release (const char *path, struct fuse_file_info *fi)
 
     Files_Unset(Rf);
 
+    free(Rf);
+
     return 0;
 }
 
@@ -267,6 +269,20 @@ static int oberon_create(const char *path, mode_t mode,
 	return 0;
 }
 
+static int oberon_rename(const char *from, const char *to, unsigned int flags)
+{
+	int res;
+
+	if (flags)
+		return -EINVAL;
+
+    Files_Rename(from, to, &res);
+	if (res > 1)
+		return -ENOENT;
+
+	return 0;
+}
+
 static int oberon_unlink(const char *path)
 {
 	int res;
@@ -287,6 +303,7 @@ static const struct fuse_operations oberon_oper = {
 	.write      = oberon_write,
 	.release    = oberon_release,
 	.create     = oberon_create,
+	.rename     = oberon_rename,
 	.unlink     = oberon_unlink,
 };
 
