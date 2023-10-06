@@ -244,6 +244,34 @@ int oberon_release (const char *path, struct fuse_file_info *fi)
     return 0;
 }
 
+static int oberon_truncate(const char *path, off_t size,
+			struct fuse_file_info *fi)
+{
+	int res;
+	Files_File f;
+
+	if (fi != NULL) {
+        Files_Rider *Rf = (Files_Rider *) fi->fh;
+
+        assert(Rf);
+
+        f = Files_Base(Rf);
+	} else {
+        f = Files_Old(path+1);
+	}
+
+	if (f == NULL) {
+		return -ENOENT;
+	}
+
+    Files_Truncate(f, size, &res);
+
+	if (res != -0)
+		return -EFBIG;
+
+
+	return 0;
+}
 
 static int oberon_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
@@ -305,6 +333,7 @@ static const struct fuse_operations oberon_oper = {
 	.create     = oberon_create,
 	.rename     = oberon_rename,
 	.unlink     = oberon_unlink,
+	.truncate   = oberon_truncate,
 };
 
 static void show_help(const char *progname)
