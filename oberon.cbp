@@ -29,12 +29,12 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
-			<Target title="RISCW32">
+			<Target title="risc-emu">
 				<Option output="bin/Debug/oberon" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="-d --offset=-1024 --image=/home/nounours/Documents/Oberon/sources/RISCW32/.OBERON.FS /home/nounours/fuse" />
+				<Option parameters="-d --offset=-1024 --image=/home/nounours/projects/oberon-risc-emu/DiskImage/oberon_m4.dsk /home/nounours/fuse" />
 				<Compiler>
 					<Add option="-g" />
 					<Add option="`pkgconf --cflags fuse3`" />
