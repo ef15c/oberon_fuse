@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1696538887 source:/home/nounours/projects/fuse/oberon/oberon.c
+1700262039 source:/home/nounours/projects/fuse/oberon/oberon.c
 	<fuse.h>
 	<stdio.h>
 	<string.h>

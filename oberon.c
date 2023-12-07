@@ -66,7 +66,7 @@ static const struct fuse_opt option_spec[] = {
 static void *oberon_init(struct fuse_conn_info *conn,
 			struct fuse_config *cfg)
 {
-	(void) conn;
+	conn->want &= ~(FUSE_CAP_ASYNC_READ|FUSE_CAP_POSIX_LOCKS|FUSE_CAP_ASYNC_DIO|FUSE_CAP_PARALLEL_DIROPS);
 
 	cfg->kernel_cache = 1;
 
@@ -362,6 +362,9 @@ int main(int argc, char *argv[])
 	/* Parse options */
 	if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
 		return 1;
+
+    /* Force single thread to avoid reentrance */
+    assert(fuse_opt_add_arg(&args, "-s") == 0);
 
 	/* When --help is specified, first print our own file-system
 	   specific help text, then signal fuse_main to show
