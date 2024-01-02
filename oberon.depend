@@ -101,3 +101,15 @@
 	"Modules.h"
 	"Files.h"
 
+1696421580 /home/nounours/projects/fuse/oberon/FileDir.h
+	<stdint.h>
+	<stdbool.h>
+
+1696576686 /home/nounours/projects/fuse/oberon/Kernel.h
+	<stdint.h>
+
+1696538477 /home/nounours/projects/fuse/oberon/Files.h
+	<stdbool.h>
+
+1696250061 /home/nounours/projects/fuse/oberon/Modules.h
+

@@ -48,7 +48,6 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="`pkgconf --cflags fuse3`" />
-			<Add directory="../../oberon_fs" />
 		</Compiler>
 		<Linker>
 			<Add option="`pkgconf --libs fuse3`" />
