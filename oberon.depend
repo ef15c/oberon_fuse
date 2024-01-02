@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1700262039 source:/home/nounours/projects/fuse/oberon/oberon.c
+1700297909 source:/home/nounours/projects/fuse/oberon/oberon.c
 	<fuse.h>
 	<stdio.h>
 	<string.h>
@@ -16,7 +16,7 @@
 	"Kernel.h"
 	"Files.h"
 
-1691489703 /usr/include/fuse3/fuse.h
+1696923529 /usr/include/fuse3/fuse.h
 	"fuse_common.h"
 	<fcntl.h>
 	<time.h>
@@ -25,7 +25,7 @@
 	<sys/statvfs.h>
 	<sys/uio.h>
 
-1691489703 /usr/include/fuse3/fuse_common.h
+1696923529 /usr/include/fuse3/fuse_common.h
 	"fuse_config.h"
 	"libfuse_config.h"
 	"fuse_opt.h"
@@ -33,11 +33,11 @@
 	<stdint.h>
 	<sys/types.h>
 
-1695824382 /usr/include/fuse3/libfuse_config.h
+1703327590 /usr/include/fuse3/libfuse_config.h
 
-1691489703 /usr/include/fuse3/fuse_opt.h
+1696923529 /usr/include/fuse3/fuse_opt.h
 
-1691489703 /usr/include/fuse3/fuse_log.h
+1696923529 /usr/include/fuse3/fuse_log.h
 	<stdarg.h>
 
 1696250061 /home/nounours/projects/oberon_fs/Modules.h
