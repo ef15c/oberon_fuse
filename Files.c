@@ -31,7 +31,7 @@ typedef struct FILES_BUFFERRECORD {
 
 
 typedef struct FILES_FILEDESC {
-    uint64_t next; /*list of files invisible to the GC*/
+    int next; /*list of files invisible to the GC*/
     int nofbufs, aleng, bleng;
     bool modH, registered;
     Files_Buffer firstbuf;
@@ -43,7 +43,7 @@ typedef struct FILES_FILEDESC {
     int noRiders;
 } FileDesc;
 
-static uint64_t root /*File*/;  /*list of open files*/
+static int root /*File*/;  /*list of open files*/
 
 static void Check(const char *s, FileDir_FileName name, int *res)
 {
@@ -148,7 +148,7 @@ Files_File Files_Old(const char *name)
                     Kernel_GetSector(inxpg->adr, (uint8_t *) inxpg->sec); f->ext[i] = inxpg; i++;
                 }
                 while (i < FileDir_ExTabSize) { f->ext[i] = NULL; i++; }
-                f->sechint = header; f->modH = false; f->next = root; root = (uint64_t) f;
+                f->sechint = header; f->modH = false; f->next = root; root = (int) f;
             }
         }
     }
@@ -492,7 +492,7 @@ void Files_Register(Files_File f)
     if (f != NULL && f->name[0] != 0) {
         Unbuffer(f);
         if (!f->registered) {
-            FileDir_Insert(f->name, f->sec[0]); f->registered = true; f->next = root; root = (uint64_t) f;
+            FileDir_Insert(f->name, f->sec[0]); f->registered = true; f->next = root; root = (int) f;
         }
     }
 }
@@ -750,7 +750,7 @@ void Files_Write(Files_Rider *r, const char ch)
     r->buf->data[r->bpos] = ch; r->bpos++; r->buf->mod = true;
 }
 
-static int mark(uint64_t f, uint64_t *nxt) {
+static int mark(int f, int *nxt) {
 /**
     PROCEDURE mark(f: INTEGER): INTEGER;
       VAR m: INTEGER;
@@ -814,7 +814,7 @@ void Files_RestoreList(void)
     END
   END RestoreList;
 */
-    uint64_t f, f0, next;
+    int f, f0, next;
 
     while (mark(root, &next) == 0) root = next;
     f = root;

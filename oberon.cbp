@@ -48,6 +48,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="`pkgconf --cflags fuse3`" />
+			<Add option="-D_FILE_OFFSET_BITS=64" />
 		</Compiler>
 		<Linker>
 			<Add option="`pkgconf --libs fuse3`" />

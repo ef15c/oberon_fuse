@@ -182,7 +182,7 @@ static int oberon_open(const char *path, struct fuse_file_info *fi)
 
     Files_Set(Rf, f, 0);
 
-    fi->fh = (uint64_t) Rf;
+    fi->fh = (int) Rf;
 
 	return 0;
 }
@@ -195,7 +195,7 @@ static int oberon_read(const char *path, char *buf, size_t size, off_t offset,
     char ch;
 
     assert(fi);
-    Rf = (Files_Rider *) fi->fh;
+    Rf = (Files_Rider *) (int) fi->fh;
     assert(Rf);
 
     Files_Reset(Rf, offset);
@@ -213,7 +213,7 @@ static int oberon_write(const char *path, const char *buf, size_t size,
     Files_Rider *Rf;
 
     assert(fi);
-    Rf = (Files_Rider *) fi->fh;
+    Rf = (Files_Rider *) (int) fi->fh;
     assert(Rf);
 
     Files_Reset(Rf, offset);
@@ -229,7 +229,7 @@ int oberon_release (const char *path, struct fuse_file_info *fi)
     Files_File f;
 
     assert(fi);
-    Rf = (Files_Rider *) fi->fh;
+    Rf = (Files_Rider *) (int) fi->fh;
     assert(Rf);
 
     f = Files_Base(Rf);
@@ -251,7 +251,7 @@ static int oberon_truncate(const char *path, off_t size,
 	Files_File f;
 
 	if (fi != NULL) {
-        Files_Rider *Rf = (Files_Rider *) fi->fh;
+        Files_Rider *Rf = (Files_Rider *) (int) fi->fh;
 
         assert(Rf);
 
@@ -292,7 +292,7 @@ static int oberon_create(const char *path, mode_t mode,
 
     Files_Set(Rf, f, 0);
 
-    fi->fh = (uint64_t) Rf;
+    fi->fh = (int) Rf;
 
 	return 0;
 }
