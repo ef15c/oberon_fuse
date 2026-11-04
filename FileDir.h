@@ -2,58 +2,57 @@
 #define FILEDIR_H_INCLUDED
 #include <stdint.h>
 #include <stdbool.h>
+#include "FileSystem.h"
 #include "Kernel.h"
 
-#define FileDir_FnLength (32)
-#define FileDir_SecTabSize (64)
-#define FileDir_ExTabSize (12)
-#define FileDir_SectorSize (Kernel_SectorLength)
-#define FileDir_IndexSize (FileDir_SectorSize / 4)
-#define FileDir_HeaderSize (352)
-#define FileDir_DirRootAdr (29)
-#define FileDir_DirPgSize ((FileDir_SectorSize - 12) / 40 / 4*4)
-#define FileDir_DirMark    (0x9B1EA38D)
-#define FileDir_HeaderMark (0x9BA71D86)
-#define FileDir_FillerSize (FileDir_SectorSize - 12 - FileDir_DirPgSize*40)
+#define IndexSize (SectorSize / 4)
+#define HeaderSize sizeof(FileHeaderData)
+#define DirPgSize ((SectorSize - sizeof(DirPageHeader)) / sizeof(DirEntry) / 4*4)
+#define DirMark    (0x9B1EA38D)
+#define HeaderMark (0x9BA71D86)
+#define FSMark     (0x97A1EAD9)
 
-typedef char FileDir_FileName[FileDir_FnLength];
-typedef int  FileDir_ExtensionTable[FileDir_ExTabSize];
-typedef int  FileDir_SectorTable[FileDir_SecTabSize];
-typedef int  FileDir_IndexSector[FileDir_IndexSize];
-typedef uint8_t FileDir_DataSector[FileDir_SectorSize];
+/*
+    EntryHandler*   = PROCEDURE (name: FileName; sec: DiskAdr; date, size: INTEGER; VAR continue: BOOLEAN);
+*/
+
+typedef void (*EntryHandler) (FileName name, int sec, int date, int size, bool *Continue, void *callerData);
+
+/*
+    FileHeader* = RECORD(FileSystem.FileHeaderData)
+      fill: ARRAY SectorSize - HeaderSize OF BYTE
+    END;
+
+    FileHd* = POINTER TO FileHeader;
+*/
+typedef struct {
+    FileHeaderData b;
+    uint8_t fill[SectorSize - HeaderSize];
+} FileHeader, *FileHd;
+
+/*
+    IndexSector* = ARRAY IndexSize OF DiskAdr;
+    DataSector* = ARRAY SectorSize OF BYTE;
+*/
+
+typedef DiskAdr IndexSector[IndexSize];
+typedef uint8_t DataSector[SectorSize];
+
+/*
+    DirPage*  = RECORD(FileSystem.DirPageData)
+      fill:  ARRAY SectorSize - SYSTEM.SIZE(FileSystem.DirPageData) OF BYTE;
+    END ;
+*/
 
 typedef struct {
-    /*first page of each file on disk*/
-    int mark;
-    FileDir_FileName name;
-    int aleng, bleng, date;
-    FileDir_ExtensionTable ext;
-    FileDir_SectorTable sec;
-    uint8_t fill[FileDir_SectorSize - FileDir_HeaderSize];
-} FileDir_FileHeader;
+    DirPageData b;
+    uint8_t fill[SectorSize - sizeof(DirPageData)];
+} DirPage;
 
-typedef FileDir_FileHeader *FileDir_FileHd;
-
-typedef struct {
-    FileDir_FileName name;
-    int adr; /*sec no of file header*/
-    int p;   /*sec no of descendant in directory*/
-} FileDir_DirEntry; /*B-tree node*/
-
-typedef struct {
-    int mark;
-    int m;
-    int p0;  /*sec no of left descendant in directory*/
-    uint8_t fill[FileDir_FillerSize];
-    FileDir_DirEntry e[FileDir_DirPgSize];
-} FileDir_DirPage;
-
-typedef void (*FileDir_EntryHandler) (FileDir_FileName name, int sec, bool *Continue, void *callerData);
-
-void FileDir_Init(void);
-void FileDir_Enumerate(char *prefix, FileDir_EntryHandler proc, void *callerData);
-void FileDir_Search(const char *name, int *A);
-void FileDir_Insert(const FileDir_FileName name, int fad);
-void FileDir_Delete(const FileDir_FileName name, int *fad);
+void FileDir_Init(FSHeader *fshd, int fssec);
+void Enumerate(const FSHeader *fshd, char *prefix, EntryHandler proc, void *callerData);
+void Search(const FSHeader *fshd, const char *name, int *A);
+void Insert(FSHeader *fshd, const FileName name, int fad, int date, int size);
+void FileDir_Delete(FSHeader *fshd, const FileName name, int *fad);
 
 #endif // FILEDIR_H_INCLUDED

@@ -37,11 +37,12 @@ typedef uint8_t Sector[SectorSize];
 
     FSHeaderPersistent* = RECORD
       mark*: INTEGER;
-      FS_OFFSET*: INTEGER;
+      dummy: INTEGER;
       version*: BYTE
     END;
 
     FSHeader* = RECORD(FSHeaderPersistent)
+      FS_OFFSET*: INTEGER;
       sector: StorageInfo;
       NofSectors*: INTEGER;
     END;
@@ -58,14 +59,15 @@ typedef struct {
 
 typedef struct {
   int32_t mark;
-  int32_t FS_OFFSET;
+  int32_t dummy;
   uint8_t version;
 } FSHeaderPersistent;
 
 typedef struct {
   FSHeaderPersistent b;
+  int FS_OFFSET;
   StorageInfo sector;
-  int32_t NofUsedSectors;
+  int NofUsedSectors;
 } FSHeader;
 
 typedef struct {
@@ -89,7 +91,7 @@ typedef struct {
         sec*: SectorTable;
       END ;
 */
-typedef uint32_t DiskAdr;
+typedef int32_t DiskAdr;
 typedef char FileName[FnLength];
 typedef DiskAdr SectorTable[SecTabSize];
 typedef DiskAdr ExtensionTable[ExTabSize];
@@ -152,7 +154,7 @@ typedef struct {
 */
 void MarkSector(FSHeader *fshd, DiskAdr sec29);
 void InitSecMap(FSHeader *fshd);
-void GetSector(FSHeader *fshd, DiskAdr sec29, Sector dst);
+void GetSector(const FSHeader *fshd, DiskAdr sec29, Sector dst);
 void FreeSector(FSHeader *fshd, DiskAdr sec29);
 void AllocSector(FSHeader *fshd, DiskAdr hint29, DiskAdr *sec29);
 void PutSector(FSHeader *fshd, DiskAdr dst29, Sector src);

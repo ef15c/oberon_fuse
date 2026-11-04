@@ -44,7 +44,7 @@ void InitSecMap(FSHeader *fshd)
 #define NofReservedSectors ((BootReservedSize + SectorSize - 1) / SectorSize + 2)
 {   int i, r;
 
-    fshd->sector = malloc(sizeof (StorageInfoDesc)); assert(fshd->sector != NULL);
+    fshd->sector = malloc(sizeof *(fshd->sector)); assert(fshd->sector != NULL);
     fshd->NofUsedSectors = 0; i = 0;
     while (i < NofReservedSectors / bpi) { fshd->sector->map[i] = -1; i++; };
     r = NofReservedSectors % bpi; if (r > 0) { fshd->sector->map[i] = (1 << r)-1; i++; };
@@ -60,13 +60,13 @@ void InitSecMap(FSHeader *fshd)
   END GetSector;
 */
 
-void GetSector(FSHeader *fshd, DiskAdr sec29, Sector dst)
+void GetSector(const FSHeader *fshd, DiskAdr sec29, Sector dst)
 {   int sec;
     off_t pos;
     ssize_t nbRead;
 
     sec = sec29 / 29; assert(sec29 == sec*29);
-    pos = lseek(OberonFS_fd, sec*SectorSize + OberonFS_offset, SEEK_SET);
+    pos = lseek(OberonFS_fd, sec*SectorSize + fshd->FS_OFFSET, SEEK_SET);
     assert (pos >= 0);
     nbRead = read(OberonFS_fd, dst, SectorSize);
     assert (nbRead == SectorSize);
@@ -125,7 +125,7 @@ void PutSector(FSHeader *fshd, DiskAdr dst29, Sector src)
     ssize_t nbWriten;
 
     dst = dst29 / 29; assert(dst29 == dst*29);
-    pos = lseek(OberonFS_fd, dst*SectorSize + OberonFS_offset, SEEK_SET);
+    pos = lseek(OberonFS_fd, dst*SectorSize + fshd->FS_OFFSET, SEEK_SET);
     assert (pos >= 0);
     nbWriten = write(OberonFS_fd, src, SectorSize);
     assert(nbWriten == SectorSize);

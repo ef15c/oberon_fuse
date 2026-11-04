@@ -1,35 +1,40 @@
 #ifndef FILES_H_INCLUDED
 #define FILES_H_INCLUDED
 #include <stdbool.h>
+#include "FileDir.h"
 
-typedef struct FILES_FILEDESC *Files_File;
-typedef struct FILES_BUFFERRECORD *Files_Buffer;
+typedef struct FILES_FILEDESC *File;
+typedef struct FILES_BUFFERRECORD *Buffer;
 
 typedef struct {
     bool eof;
     int res;
-    Files_File file;
+    File file;
     int apos, bpos;
-    Files_Buffer buf;
-} Files_Rider;
+    Buffer buf;
+} Rider;
 
-void Files_Init(void);
-Files_File Files_Old(const char *name);
-Files_File Files_New(const char *name);
-void Files_Set(Files_Rider *r, Files_File f, int pos);
-void Files_Read(Files_Rider *r, char *ch);
-void Files_Write(Files_Rider *r, const char ch);
-void Files_Register(Files_File f);
-void Files_Close(Files_File f);
-void Files_RestoreList(void);
-Files_File Files_Base(Files_Rider *r);
-void Files_Delete(const char *name, int *res);
-void Files_Rename(const char *old, const char *New, int *res);
-void Files_Truncate(Files_File f, int length, int *res);
-int Files_Length(Files_File f);
+extern FSHeader fshd; /*filesystem instance*/
 
-/* Not in Oberon original code : helps to count files references */
-void Files_Unset(Files_Rider *r);
-void Files_Reset(Files_Rider *r, int pos);
+void Files_Init(int fssec);
+File OldByAdr(DiskAdr header);
+File Old(const char *name);
+File New(const char *name);
+void Set(Rider *r, File f, int pos);
+void Read(Rider *r, char *ch);
+void Write(Rider *r, const char ch);
+void Register(File f);
+void Close(File f);
+void RestoreList(void);
+File Base(Rider *r);
+void Delete(const char *name, int *res);
+void Rename(const char *old, const char *New, int *res);
+int Length(File f);
+
+/* Not in Oberon original code */
+void Truncate(File f, int length, int *res);
+/* helps to count files references */
+void Unset(Rider *r);
+void Reset(Rider *r, int pos);
 
 #endif // FILES_H_INCLUDED

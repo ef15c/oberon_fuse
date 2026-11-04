@@ -2,10 +2,9 @@
 #define MODULES_H_INCLUDED
 
 extern int OberonFS_fd;
-extern int OberonFS_offset;
 
-void Set_OberonFS_image(int fd, int offset);
+void Set_OberonFS_image(int fd);
 
-void Modules_Init(void);
+void Modules_Init(int fssec);
 
 #endif // MODULES_H_INCLUDED

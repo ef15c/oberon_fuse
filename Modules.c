@@ -1,16 +1,14 @@
 #include "Modules.h"
 #include "Files.h"
 
-int Modules_OberonFS_fd;
-int Modules_OberonFS_offset;
+int OberonFS_fd;
 
-void Modules_Set_OberonFS_image(int fd, int offset)
+void Set_OberonFS_image(int fd)
 {
-    Modules_OberonFS_fd = fd;
-    Modules_OberonFS_offset = offset;
+    OberonFS_fd = fd;
 }
 
-void Modules_Init(void)
+void Modules_Init(int fssec)
 {
 /**
   PROCEDURE Init*;
@@ -18,5 +16,5 @@ void Modules_Init(void)
     SYSTEM.GET(16, AllocPtr); SYSTEM.GET(20, root); SYSTEM.GET(24, limit); DEC(limit, 8000H)
   END Init;
  */
-    Files_Init();
+    Files_Init(fssec);
 }

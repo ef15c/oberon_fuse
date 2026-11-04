@@ -4,20 +4,19 @@
 
 #include "Files.h"
 #include "Kernel.h"
-#include "FileDir.h"
 
 #define MaxBufs (4)
-#define HS  (FileDir_HeaderSize)
-#define SS (FileDir_SectorSize)
-#define STS (FileDir_SecTabSize)
-#define XS (FileDir_IndexSize)
+#define HS  (HeaderSize)
+#define SS  (SectorSize)
+#define STS (SecTabSize)
+#define XS  (IndexSize)
 
 typedef int DiskAdr;
 
 typedef struct {
     DiskAdr adr;
     bool mod;
-    FileDir_IndexSector sec;
+    IndexSector sec;
 } IndexRecord;
 
 typedef IndexRecord *Index;
@@ -25,8 +24,8 @@ typedef IndexRecord *Index;
 typedef struct FILES_BUFFERRECORD {
     int apos, lim;
     bool mod;
-    Files_Buffer next;
-    FileDir_DataSector data;
+    Buffer next;
+    DataSector data;
 } BufferRecord;
 
 
@@ -34,18 +33,19 @@ typedef struct FILES_FILEDESC {
     int next; /*list of files invisible to the GC*/
     int nofbufs, aleng, bleng;
     bool modH, registered;
-    Files_Buffer firstbuf;
+    Buffer firstbuf;
     DiskAdr sechint;
-    FileDir_FileName name;
+    FileName name;
     int date;
-    Index ext[FileDir_ExTabSize];
-    FileDir_SectorTable sec;
+    Index ext[ExTabSize];
+    SectorTable sec;
     int noRiders;
 } FileDesc;
 
 static int root /*File*/;  /*list of open files*/
+    FSHeader fshd; /*filesystem instance*/
 
-static void Check(const char *s, FileDir_FileName name, int *res)
+static void Check(const char *s, FileName name, int *res)
 {
 /**
   PROCEDURE Check(s: ARRAY OF CHAR;
@@ -72,36 +72,33 @@ static void Check(const char *s, FileDir_FileName name, int *res)
     if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
         do { name[i] = ch; i++; ch = s[i]; }
         while (!(!((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z')
-        || (ch >= 'a' && ch <= 'z') || ch == '.') || i == FileDir_FnLength ));
-        if (i == FileDir_FnLength) *res = 4;
+        || (ch >= 'a' && ch <= 'z') || ch == '.') || i == FnLength ));
+        if (i == FnLength) *res = 4;
         else if (ch == 0) { *res = 0;
-            while (i < FileDir_FnLength) { name[i] = 0; i++; }
+            while (i < FnLength) { name[i] = 0; i++; }
         } else *res = 5;
     } else if (ch == 0) { name[0] = 0; *res = -1;
     } else *res = 3;
 }
 
-Files_File Files_Old(const char *name)
-{
-/**
-  PROCEDURE Old*(name: ARRAY OF CHAR): File;
+File OldByAdr(DiskAdr header) {
+/*
+  PROCEDURE OldByAdr*(header: DiskAdr): File;
     VAR i, k, res: INTEGER;
-      f: File;
-      header: DiskAdr;
-      buf: Buffer;
-      F: FileDir.FileHd;
+      f!: File;
+      buf!: Buffer;
+      F!: FileDir.FileHd;
       namebuf: FileDir.FileName;
-      inxpg: Index;
-  BEGIN f := NIL; Check(name, namebuf, res);
-    IF res = 0 THEN
-      FileDir.Search(namebuf, header);
-      IF header # 0 THEN
-        f := SYSTEM.VAL(File, root);
-        WHILE (f # NIL) & (f.sec[0] # header) DO f := SYSTEM.VAL(File, f.next) END ;
-        IF f = NIL THEN (*file not yet present*)
-          NEW(buf); buf.apos := 0; buf.next := buf; buf.mod := FALSE;
-          F := SYSTEM.VAL(FileDir.FileHd, SYSTEM.ADR(buf.data));
-          Kernel.GetSector(header, buf.data); ASSERT(F.mark = FileDir.HeaderMark);
+      inxpg!: Index;
+  BEGIN f := NIL;
+    IF header # 0 THEN
+      f := SYSTEM.VAL(File, root);
+      WHILE (f # NIL) & (f.sec[0] # header) DO f := SYSTEM.VAL(File, f.next) END ;
+      IF f = NIL THEN (*file not yet present*)
+        NEW(buf); buf.apos := 0; buf.next := buf; buf.mod := FALSE;
+        FileSystem.GetSector(fshd, header, buf.data);
+        F := SYSTEM.VAL(FileDir.FileHd, SYSTEM.ADR(buf.data));
+        IF F.mark = FileDir.HeaderMark THEN
           NEW(f); f.aleng := F.aleng; f.bleng := F.bleng; f.date := F.date;
           IF f.aleng = 0 THEN buf.lim := f.bleng ELSE buf.lim := SS END ;
           f.firstbuf := buf; f.nofbufs := 1; f.name := namebuf; f.registered := TRUE;
@@ -109,45 +106,43 @@ Files_File Files_Old(const char *name)
           k := (f.aleng + (XS-STS)) DIV XS; i := 0;
           WHILE i < k DO
             NEW(inxpg); inxpg.adr := F.ext[i]; inxpg.mod := FALSE;
-            Kernel.GetSector(inxpg.adr, inxpg.sec); f.ext[i] := inxpg; INC(i)
+            FileSystem.GetSector(fshd, inxpg.adr, inxpg.sec); f.ext[i] := inxpg; INC(i)
           END ;
           WHILE i < FileDir.ExTabSize DO f.ext[i] := NIL; INC(i) END ;
           f.sechint := header; f.modH := FALSE; f.next := root; root := SYSTEM.VAL(INTEGER, f)
         END
       END
-    END ;
+    END
     RETURN f
-  END Old;
+  END OldByAdr;
 */
-    int i, k, res;
-    Files_File f;
-    DiskAdr header;
-    Files_Buffer buf;
-    FileDir_FileHd F;
-    FileDir_FileName namebuf;
+    int i, k;
+    File f;
+    Buffer buf;
+    FileHd F;
+    FileName namebuf;
     Index inxpg;
 
-    f = NULL; Check(name, namebuf, &res);
-    if (res == 0) {
-        FileDir_Search(namebuf, &header);
-        if (header != 0) {
-            f = (Files_File) root;
-            while (f != NULL && f->sec[0] != header) { f = (Files_File) f->next; }
-            if (f == NULL) { /*file not yet present*/
-                buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf); buf->apos = 0; buf->next = buf; buf->mod = false;
-                F = (FileDir_FileHd) &buf->data;
-                Kernel_GetSector(header, (uint8_t *) buf->data); assert(F->mark == FileDir_HeaderMark);
-                f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = F->aleng; f->bleng = F->bleng; f->date = F->date;
+    f = NULL;
+    if (header != 0) {
+        f = (File) root;
+        while (f != NULL && f->sec[0] != header) { f = (File) f->next; }
+        if (f == NULL) { /*file not yet present*/
+            buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf); buf->apos = 0; buf->next = buf; buf->mod = false;
+            GetSector(&fshd, header, (uint8_t *) buf->data);
+            F = (FileHd) &buf->data;
+            if (F->b.mark == HeaderMark) {
+                f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = F->b.aleng; f->bleng = F->b.bleng; f->date = F->b.date;
                 f->noRiders = 0;
                 if (f->aleng == 0) buf->lim = f->bleng; else buf->lim = SS;
                 f->firstbuf = buf; f->nofbufs = 1; memcpy(f->name, namebuf, sizeof f->name); f->registered = true;
-                memcpy(f->sec, F->sec, sizeof f->sec);
+                memcpy(f->sec, F->b.sec, sizeof f->sec);
                 k = (f->aleng + (XS-STS)) / XS; i = 0;
                 while (i < k) {
-                    inxpg = malloc(sizeof *inxpg); assert(inxpg); memset(inxpg, 0, sizeof *inxpg); inxpg->adr = F->ext[i]; inxpg->mod = false;
-                    Kernel_GetSector(inxpg->adr, (uint8_t *) inxpg->sec); f->ext[i] = inxpg; i++;
+                    inxpg = malloc(sizeof *inxpg); assert(inxpg); memset(inxpg, 0, sizeof *inxpg); inxpg->adr = F->b.ext[i]; inxpg->mod = false;
+                    GetSector(&fshd, inxpg->adr, (uint8_t *) inxpg->sec); f->ext[i] = inxpg; i++;
                 }
-                while (i < FileDir_ExTabSize) { f->ext[i] = NULL; i++; }
+                while (i < ExTabSize) { f->ext[i] = NULL; i++; }
                 f->sechint = header; f->modH = false; f->next = root; root = (int) f;
             }
         }
@@ -155,14 +150,43 @@ Files_File Files_Old(const char *name)
     return f;
 }
 
-Files_File Files_New(const char *name)
+File Old(const char *name)
+{
+/**
+  PROCEDURE Old*(name: ARRAY OF CHAR): File;
+    VAR res: INTEGER;
+      f!: File;
+      header: DiskAdr;
+      namebuf: FileDir.FileName;
+  BEGIN f := NIL; Check(name, namebuf, res);
+    IF res = 0 THEN
+      FileDir.Search(fshd, namebuf, header);
+      IF header # 0 THEN f := OldByAdr(header); ASSERT(f # NIL) END
+    END
+    RETURN f
+  END Old;
+*/
+    int res;
+    File f;
+    DiskAdr header;
+    FileName namebuf;
+
+    f = NULL; Check(name, namebuf, &res);
+    if (res == 0) {
+        Search(&fshd, namebuf, &header);
+        if (header != 0) { OldByAdr(header); assert(f != NULL); }
+    }
+    return f;
+}
+
+File New(const char *name)
 {
 /**
   PROCEDURE New*(name: ARRAY OF CHAR): File;
     VAR i, res: INTEGER;
-      f: File;
-      buf: Buffer;
-      F: FileDir.FileHd;
+      f!: File;
+      buf!: Buffer;
+      F!: FileDir.FileHd;
       namebuf: FileDir.FileName;
   BEGIN f := NIL; Check(name, namebuf, res);
     IF res <= 0 THEN
@@ -183,31 +207,31 @@ Files_File Files_New(const char *name)
   END New;
 */
     int i, res;
-    Files_File f;
-    Files_Buffer buf;
-    FileDir_FileHd F;
-    FileDir_FileName namebuf;
+    File f;
+    Buffer buf;
+    FileHd F;
+    FileName namebuf;
 
     f = NULL; Check(name, namebuf, &res);
     if (res <= 0) {
         buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf); buf->apos = 0; buf->mod = true; buf->lim = HS; buf->next = buf;
-        F = (FileDir_FileHd) &buf->data;
-        F->mark = FileDir_HeaderMark;
-        F->aleng = 0; F->bleng = HS; memcpy(F->name, namebuf, sizeof F->name);
-        F->date = Kernel_Clock();
+        F = (FileHd) &buf->data;
+        F->b.mark = HeaderMark;
+        F->b.aleng = 0; F->b.bleng = HS; memcpy(F->b.name, namebuf, sizeof F->b.name);
+        F->b.date = Clock();
         f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = 0; f->bleng = HS; f->modH = true;
-        f->registered = false; f->date = F->date;
+        f->registered = false; f->date = F->b.date;
         f->firstbuf = buf; f->nofbufs = 1; memcpy(f->name, namebuf, sizeof f->name); f->sechint = 0;
         f->noRiders = 0;
         i = 0;
-        do { f->ext[i] = NULL; F->ext[i] = 0; i++; } while (!(i == FileDir_ExTabSize));
+        do { f->ext[i] = NULL; F->b.ext[i] = 0; i++; } while (!(i == ExTabSize));
         i = 0;
-        do { f->sec[i] = 0; F->sec[i] = 0; i++; } while (!(i == STS));
+        do { f->sec[i] = 0; F->b.sec[i] = 0; i++; } while (!(i == STS));
     }
     return f;
 }
 
-void Files_Set(Files_Rider *r, Files_File f, int pos)
+void Set(Rider *r, File f, int pos)
 {
 /**
   PROCEDURE Set*(VAR r: Rider; f: File; pos: INTEGER);
@@ -227,22 +251,32 @@ void Files_Set(Files_Rider *r, Files_File f, int pos)
     r->eof = false; r->res = 0;
     if (f != NULL) {
         r->file = f; f->noRiders++;
-        Files_Reset(r, pos);
+        Reset(r, pos);
     } else  r->file = NULL;
 }
 
-void Files_Unset(Files_Rider *r)
+File Base(Rider *r)
+{
+/**
+  PROCEDURE Base*(VAR r: Rider): File;
+  BEGIN RETURN r.file
+  END Base;
+*/
+  return r->file;
+}
+
+void Unset(Rider *r)
 {
     assert(r->file);
     assert(r->file->noRiders > 0);
     r->file->noRiders--;
 
     if (r->file->noRiders == 0) {
-        Files_RestoreList();
+        RestoreList();
     }
 }
 
-static void PosToABLeng(Files_File f, int pos, int *a, int *b)
+static void PosToABLeng(File f, int pos, int *a, int *b)
 {
 /**
     PROCEDURE PosToABLeng(f: File; pos: INTEGER; VAR a, b: INTEGER);
@@ -261,10 +295,10 @@ static void PosToABLeng(Files_File f, int pos, int *a, int *b)
     }
 }
 
-void Files_Reset(Files_Rider *r, int pos)
+void Reset(Rider *r, int pos)
 {
     int a, b;
-    Files_File f;
+    File f;
 
     f = r->file;
     assert(f);
@@ -274,30 +308,7 @@ void Files_Reset(Files_Rider *r, int pos)
     r->apos = a; r->bpos = b; r->buf = f->firstbuf;
 }
 
-void ReadBuf(Files_File f, Files_Buffer buf, int pos)
-{
-/**
-  PROCEDURE ReadBuf(f: File; buf: Buffer; pos: INTEGER);
-    VAR sec: DiskAdr;
-  BEGIN
-    IF pos < STS THEN sec := f.sec[pos]
-    ELSE sec := f.ext[(pos-STS) DIV XS].sec[(pos-STS) MOD XS]
-    END ;
-    Kernel.GetSector(sec, buf.data);
-    IF pos < f.aleng THEN buf.lim := SS ELSE buf.lim := f.bleng END ;
-    buf.apos := pos; buf.mod := FALSE
-  END ReadBuf;
-*/
-    DiskAdr sec;
-
-    if (pos < STS) sec = f->sec[pos];
-    else sec = f->ext[(pos-STS) / XS]->sec[(pos-STS) % XS];
-    Kernel_GetSector(sec, (uint8_t *) buf->data);
-    if (pos < f->aleng) buf->lim = SS; else buf->lim = f->bleng;
-    buf->apos = pos; buf->mod = false;
-}
-
-static void UpdateHeader(Files_File f, FileDir_FileHeader *F)
+static void UpdateHeader(File f, FileHeader *F)
 {
 /**
   PROCEDURE UpdateHeader(f: File; VAR F: FileDir.FileHeader);
@@ -309,23 +320,46 @@ static void UpdateHeader(Files_File f, FileDir_FileHeader *F)
 */
     int k;
 
-    F->aleng = f->aleng; F->bleng = f->bleng; F->date = f->date;
-    memcpy(F->sec, f->sec, sizeof F->sec); k = (f->aleng + (XS-STS)) / XS;
-    while (k > 0) { k--; F->ext[k] = f->ext[k]->adr; }
+    F->b.aleng = f->aleng; F->b.bleng = f->bleng; F->b.date = f->date;
+    memcpy(F->b.sec, f->sec, sizeof F->b.sec); k = (f->aleng + (XS-STS)) / XS;
+    while (k > 0) { k--; F->b.ext[k] = f->ext[k]->adr; }
+}
+
+void ReadBuf(File f, Buffer buf, int pos)
+{
+/**
+  PROCEDURE ReadBuf(f: File; buf: Buffer; pos: INTEGER);
+    VAR sec: DiskAdr;
+  BEGIN
+    IF pos < STS THEN sec := f.sec[pos]
+    ELSE sec := f.ext[(pos-STS) DIV XS].sec[(pos-STS) MOD XS]
+    END ;
+    FileSystem.GetSector(fshd, sec, buf.data);
+    IF pos < f.aleng THEN buf.lim := SS ELSE buf.lim := f.bleng END ;
+    buf.apos := pos; buf.mod := FALSE
+  END ReadBuf;
+*/
+    DiskAdr sec;
+
+    if (pos < STS) sec = f->sec[pos];
+    else sec = f->ext[(pos-STS) / XS]->sec[(pos-STS) % XS];
+    GetSector(&fshd, sec, (uint8_t *) buf->data);
+    if (pos < f->aleng) buf->lim = SS; else buf->lim = f->bleng;
+    buf->apos = pos; buf->mod = false;
 }
 
 
-static void WriteBuf(Files_File f, Files_Buffer buf)
+static void WriteBuf(File f, Buffer buf)
 {
 /**
   PROCEDURE WriteBuf(f: File; buf: Buffer);
     VAR i, k: INTEGER;
-      secadr: DiskAdr; inx: Index;
+      secadr: DiskAdr; inx!: Index;
   BEGIN
     IF buf.apos < STS THEN
       secadr := f.sec[buf.apos];
       IF secadr = 0 THEN
-        Kernel.AllocSector(f.sechint, secadr);
+        FileSystem.AllocSector(fshd, f.sechint, secadr);
         f.modH := TRUE; f.sec[buf.apos] := secadr; f.sechint := secadr
       END ;
       IF buf.apos = 0 THEN
@@ -337,11 +371,11 @@ static void WriteBuf(Files_File f, Files_Buffer buf)
       END ;
       k := (buf.apos - STS) MOD XS; secadr := inx.sec[k];
       IF secadr = 0 THEN
-        Kernel.AllocSector(f.sechint, secadr);
+        FileSystem.AllocSector(fshd, f.sechint, secadr);
         f.modH := TRUE; inx.mod := TRUE; inx.sec[k] := secadr; f.sechint := secadr
       END
     END ;
-    Kernel.PutSector(secadr, buf.data); buf.mod := FALSE
+    FileSystem.PutSector(fshd, secadr, buf.data); buf.mod := FALSE
   END WriteBuf;
 */
     int i, k;
@@ -350,11 +384,11 @@ static void WriteBuf(Files_File f, Files_Buffer buf)
     if (buf->apos < STS) {
         secadr = f->sec[buf->apos];
         if (secadr == 0) {
-            Kernel_AllocSector(f->sechint, &secadr);
+            AllocSector(&fshd, f->sechint, &secadr);
             f->modH = true; f->sec[buf->apos] = secadr; f->sechint = secadr;
         }
         if (buf->apos == 0) {
-            UpdateHeader(f, (FileDir_FileHeader *) buf->data); f->modH = false;
+            UpdateHeader(f, (FileHeader *) buf->data); f->modH = false;
         }
     } else { i = (buf->apos - STS) / XS; inx = f->ext[i];
         if (inx == NULL) {
@@ -362,18 +396,37 @@ static void WriteBuf(Files_File f, Files_Buffer buf)
         }
         k = (buf->apos - STS) % XS; secadr = inx->sec[k];
         if (secadr == 0) {
-            Kernel_AllocSector(f->sechint, &secadr);
+            AllocSector(&fshd, f->sechint, &secadr);
             f->modH = true; inx->mod = true; inx->sec[k] = secadr; f->sechint = secadr;
         }
     }
-    Kernel_PutSector(secadr, buf->data); buf->mod = false;
+    PutSector(&fshd, secadr, buf->data); buf->mod = false;
 }
 
-static Files_Buffer GetBuf(Files_File f, int pos)
+static Buffer Buf(File f, int pos)
+{
+/**
+  PROCEDURE Buf(f: File; pos: INTEGER): Buffer;
+    VAR buf!: Buffer;
+  BEGIN buf := f.firstbuf;
+    WHILE (buf.apos # pos) & (buf.next # f.firstbuf) DO buf := buf.next END ;
+    IF buf.apos # pos THEN buf := NIL END ;
+    RETURN buf
+  END Buf;
+*/
+    Buffer buf;
+
+    buf = f->firstbuf;
+    while (buf->apos != pos && buf->next != f->firstbuf) buf = buf->next;
+    if (buf->apos != pos) buf = NULL;
+    return buf;
+}
+
+static Buffer GetBuf(File f, int pos)
 {
 /**
   PROCEDURE GetBuf(f: File; pos: INTEGER): Buffer;
-    VAR buf: Buffer;
+    VAR buf!: Buffer;
   BEGIN buf := f.firstbuf;
     WHILE (buf.apos # pos) & (buf.next # f.firstbuf) DO buf := buf.next END ;
     IF buf.apos # pos THEN
@@ -387,7 +440,7 @@ static Files_Buffer GetBuf(Files_File f, int pos)
     RETURN buf
   END GetBuf;
 */
-    Files_Buffer buf;
+    Buffer buf;
 
     buf = f->firstbuf;
     while (buf->apos != pos && buf->next != f->firstbuf) buf = buf->next;
@@ -403,32 +456,13 @@ static Files_Buffer GetBuf(Files_File f, int pos)
     return buf;
 }
 
-static Files_Buffer Buf(Files_File f, int pos)
-{
-/**
-  PROCEDURE Buf(f: File; pos: INTEGER): Buffer;
-    VAR buf: Buffer;
-  BEGIN buf := f.firstbuf;
-    WHILE (buf.apos # pos) & (buf.next # f.firstbuf) DO buf := buf.next END ;
-    IF buf.apos # pos THEN buf := NIL END ;
-    RETURN buf
-  END Buf;
-*/
-    Files_Buffer buf;
-
-    buf = f->firstbuf;
-    while (buf->apos != pos && buf->next != f->firstbuf) buf = buf->next;
-    if (buf->apos != pos) buf = NULL;
-    return buf;
-}
-
-static void Unbuffer(Files_File f)
+static void Unbuffer(File f)
 {
 /**
   PROCEDURE Unbuffer(f: File);
     VAR i, k: INTEGER;
-      buf: Buffer;
-      inx: Index;
+      buf!: Buffer;
+      inx!: Index;
       head: FileDir.FileHeader;
   BEGIN buf := f.firstbuf;
     REPEAT
@@ -440,21 +474,21 @@ static void Unbuffer(Files_File f)
       inx := f.ext[i]; INC(i);
       IF inx.mod THEN
         IF inx.adr = 0 THEN
-          Kernel.AllocSector(f.sechint, inx.adr); f.sechint := inx.adr; f.modH := TRUE
+          FileSystem.AllocSector(fshd, f.sechint, inx.adr); f.sechint := inx.adr; f.modH := TRUE
         END ;
-        Kernel.PutSector(inx.adr, inx.sec); inx.mod := FALSE
+        FileSystem.PutSector(fshd, inx.adr, inx.sec); inx.mod := FALSE
       END
     END ;
     IF f.modH THEN
-      Kernel.GetSector(f.sec[0], head); UpdateHeader(f, head);
-      Kernel.PutSector(f.sec[0], head); f.modH := FALSE
+      FileSystem.GetSector(fshd, f.sec[0], head); UpdateHeader(f, head);
+      FileSystem.PutSector(fshd, f.sec[0], head); f.modH := FALSE
     END
   END Unbuffer;
 */
     int i, k;
-    Files_Buffer buf;
+    Buffer buf;
     Index inx;
-    FileDir_FileHeader head;
+    FileHeader head;
 
     buf = f->firstbuf;
     do {
@@ -466,26 +500,29 @@ static void Unbuffer(Files_File f)
         inx = f->ext[i]; i++;
         if (inx->mod) {
             if (inx->adr == 0) {
-                Kernel_AllocSector(f->sechint, &inx->adr); f->sechint = inx->adr; f->modH = true;
+                AllocSector(&fshd, f->sechint, &inx->adr); f->sechint = inx->adr; f->modH = true;
             }
-            Kernel_PutSector(inx->adr, (uint8_t *) inx->sec); inx->mod = false;
+            PutSector(&fshd, inx->adr, (uint8_t *) inx->sec); inx->mod = false;
         }
     }
     if (f->modH) {
-      Kernel_GetSector(f->sec[0], (uint8_t *) &head); UpdateHeader(f, &head);
-      Kernel_PutSector(f->sec[0], (uint8_t *) &head); f->modH = false;
+      GetSector(&fshd, f->sec[0], (uint8_t *) &head); UpdateHeader(f, &head);
+      PutSector(&fshd, f->sec[0], (uint8_t *) &head); f->modH = false;
     }
 }
 
-void Files_Register(Files_File f)
+void Register(File f)
 {
 /**
   PROCEDURE Register*(f: File);
+    VAR c!: Hook;
   BEGIN
     IF (f # NIL) & (f.name[0] # 0X) THEN
       Unbuffer(f);
       IF ~f.registered THEN
-        FileDir.Insert(f.name, f.sec[0]); f.registered := TRUE; f.next := root; root := SYSTEM.VAL(INTEGER, f)
+        FileDir.Insert(fshd, f.name, f.sec[0], f.date, f.aleng * SS + f.bleng - HS);
+        f.registered := TRUE; f.next := root; root := SYSTEM.VAL(INTEGER, f);
+        c := FileChangeCbk.next; WHILE c # NIL DO c.cbk(f.sec[0], AddFile); c := c.next END
       END
     END
   END Register;
@@ -493,12 +530,13 @@ void Files_Register(Files_File f)
     if (f != NULL && f->name[0] != 0) {
         Unbuffer(f);
         if (!f->registered) {
-            FileDir_Insert(f->name, f->sec[0]); f->registered = true; f->next = root; root = (int) f;
+            Insert(&fshd, f->name, f->sec[0], f->date, f->aleng * SS + f->bleng - HS);
+            f->registered = true; f->next = root; root = (int) f;
         }
     }
 }
 
-void Files_Close(Files_File f)
+void Close(File f)
 {
 /**
   PROCEDURE Close*(f: File);
@@ -509,30 +547,33 @@ void Files_Close(Files_File f)
     if (f != NULL) Unbuffer(f);
 }
 
-void Files_Delete(const char *name, int *res)
+void Delete(const char *name, int *res)
 {
 /**
   PROCEDURE Delete*(name: ARRAY OF CHAR; VAR res: INTEGER);
     VAR adr: DiskAdr;
-        namebuf: FileDir.FileName;
+      namebuf: FileDir.FileName;
+      c!: Hook;
   BEGIN Check(name, namebuf, res);
     IF res = 0 THEN
-      FileDir.Delete(namebuf, adr);
-      IF adr = 0 THEN res := 2 END
+      FileDir.Delete(fshd, namebuf, adr);
+      IF adr = 0 THEN res := 2
+      ELSE c := FileChangeCbk.next; WHILE c # NIL DO c.cbk(adr, DeleteFile); c := c.next END
+      END
     END
   END Delete;
 */
     DiskAdr adr;
-    FileDir_FileName namebuf;
+    FileName namebuf;
 
     Check(name, namebuf, res);
     if (*res == 0) {
-        FileDir_Delete(namebuf, &adr);
+        FileDir_Delete(&fshd, namebuf, &adr);
         if (adr == 0) *res = 2;
     }
 }
 
-void Files_Truncate(Files_File f, int length, int *res)
+void Truncate(File f, int length, int *res)
 {
 /**
   (* Christian Schoffit 05/10/2023 *)
@@ -571,32 +612,32 @@ void Files_Truncate(Files_File f, int length, int *res)
   END Truncate;
 */
     int a, j, k, cl;
-    FileDir_IndexSector ind;
-    Files_Rider r;
+    IndexSector ind;
+    Rider r;
 
     if (f != NULL) {
         Unbuffer(f);
-        f->date = Kernel_Clock();
+        f->date = Clock();
         f->modH = true;
-        cl = Files_Length(f);
+        cl = Length(f);
         if (cl < length) { /*The file must be extended*/
-            Files_Set(&r, f, cl);
-            while (cl < length) { Files_Write(&r, 0); cl++; }
+            Set(&r, f, cl);
+            while (cl < length) { Write(&r, 0); cl++; }
             Unbuffer(f);
-            Files_Unset(&r);
+            Unset(&r);
         } else {
             a = f->aleng; PosToABLeng(f, length, &f->aleng, &f->bleng);
             if (a > f->aleng) { /*The file must be shrink*/
                 if (a < STS) {
-                    while (a > f->aleng) { Kernel_FreeSector(f->sec[a]);
+                    while (a > f->aleng) { FreeSector(&fshd, f->sec[a]);
                         f->sec[a] = 0; a--;
                     }
                 } else { j = (a-STS) % XS + 1; k = (a-STS) / XS;
                     while (a > f->aleng) {
-                        Kernel_GetSector(f->ext[k]->adr, (uint8_t *) ind);
-                        while (a > f->aleng && j > 0) { j--; Kernel_FreeSector(ind[j]); ind[j] = 0; a--; }
-                        if (j == 0) { Kernel_FreeSector(f->ext[k]->adr); j = XS; k--;
-                        } else Kernel_PutSector(f->ext[k]->adr, (uint8_t *) ind);
+                        GetSector(&fshd, f->ext[k]->adr, (uint8_t *) ind);
+                        while (a > f->aleng && j > 0) { j--; FreeSector(&fshd, ind[j]); ind[j] = 0; a--; }
+                        if (j == 0) { FreeSector(&fshd, f->ext[k]->adr); j = XS; k--;
+                        } else PutSector(&fshd, f->ext[k]->adr, (uint8_t *) ind);
                         k--;
                     }
                 }
@@ -606,7 +647,47 @@ void Files_Truncate(Files_File f, int length, int *res)
     }
 }
 
-int Files_Length(Files_File f)
+void Rename(const char *old, const char *New, int *res)
+{
+/**
+  PROCEDURE Rename*(old, new: ARRAY OF CHAR; VAR res: INTEGER);
+    VAR adr: DiskAdr;
+      oldbuf, newbuf: FileDir.FileName;
+      head: FileDir.FileHeader;
+      c!: Hook;
+  BEGIN Check(old, oldbuf, res);
+    IF res = 0 THEN
+      Check(new, newbuf, res);
+      IF res = 0 THEN
+        FileDir.Delete(fshd, oldbuf, adr);
+        IF adr # 0 THEN FileSystem.GetSector(fshd, adr, head);
+          FileDir.Insert(fshd, newbuf, adr, head.date, head.aleng * SS + head.bleng - HS);
+          head.name := newbuf; FileSystem.PutSector(fshd, adr, head);
+          c := FileChangeCbk.next; WHILE c # NIL DO c.cbk(adr, RenameFile); c := c.next END
+        ELSE res := 2
+        END
+      END
+    END
+  END Rename;
+*/
+    DiskAdr adr;
+    FileName oldbuf, newbuf;
+    FileHeader head;
+
+    Check(old+1, oldbuf, res);
+    if (*res == 0) {
+        Check(New+1, newbuf, res);
+        if (*res == 0) {
+            FileDir_Delete(&fshd, oldbuf, &adr);
+            if (adr != 0) { GetSector(&fshd, adr, (uint8_t *) &head);
+                Insert(&fshd, newbuf, adr, head.b.date, head.b.aleng * SS + head.b.bleng - HS);
+                memcpy(head.b.name, newbuf, sizeof head.b.name); PutSector(&fshd, adr, (uint8_t *) &head);
+            } else *res = 2;
+        }
+    }
+}
+
+int Length(File f)
 {
 /**
   PROCEDURE Length*(f: File): INTEGER;
@@ -616,49 +697,11 @@ int Files_Length(Files_File f)
   return f->aleng * SS + f->bleng - HS;
 }
 
-void Files_Rename(const char *old, const char *New, int *res)
-{
-/**
-  PROCEDURE Rename*(old, new: ARRAY OF CHAR; VAR res: INTEGER);
-    VAR adr: DiskAdr;
-        oldbuf, newbuf: FileDir.FileName;
-        head: FileDir.FileHeader;
-  BEGIN Check(old, oldbuf, res);
-    IF res = 0 THEN
-      Check(new, newbuf, res);
-      IF res = 0 THEN
-        FileDir.Delete(oldbuf, adr);
-        IF adr # 0 THEN
-          FileDir.Insert(newbuf, adr);
-          Kernel.GetSector(adr, head); head.name := newbuf; Kernel.PutSector(adr, head)
-        ELSE res := 2
-        END
-      END
-    END
-  END Rename;
-*/
-    DiskAdr adr;
-    FileDir_FileName oldbuf, newbuf;
-    FileDir_FileHeader head;
-
-    Check(old+1, oldbuf, res);
-    if (*res == 0) {
-        Check(New+1, newbuf, res);
-        if (*res == 0) {
-            FileDir_Delete(oldbuf, &adr);
-            if (adr != 0) {
-                FileDir_Insert(newbuf, adr);
-                Kernel_GetSector(adr, (uint8_t *) &head); memcpy(head.name, newbuf, sizeof head.name); Kernel_PutSector(adr, (uint8_t *) &head);
-            } else *res = 2;
-        }
-    }
-}
-
-void Files_Read(Files_Rider *r, char *ch)
+void Read(Rider *r, char *ch)
 {
 /**
   PROCEDURE Read*(VAR r: Rider; VAR ch: CHAR);
-    VAR buf: Buffer;  (*same as ReadByte*)
+    VAR buf!: Buffer;  (*same as ReadByte*)
   BEGIN
     IF r.apos # r.buf.apos THEN r.buf := GetBuf(r.file, r.apos) END ;
     IF r.bpos < r.buf.lim THEN ch := CHR(r.buf.data[r.bpos]); INC(r.bpos)
@@ -674,7 +717,7 @@ void Files_Read(Files_Rider *r, char *ch)
     END
   END Read;
 */
-    Files_Buffer buf;  /*same as ReadByte*/
+    Buffer buf;  /*same as ReadByte*/
 
     if (r->apos != r->buf->apos) r->buf = GetBuf(r->file, r->apos);
     if (r->bpos < r->buf->lim) { *ch = r->buf->data[r->bpos]; r->bpos++; }
@@ -689,11 +732,13 @@ void Files_Read(Files_Rider *r, char *ch)
     }
 }
 
-static void NewExt(Files_File f)
+/*---------------------------Write---------------------------*/
+
+static void NewExt(File f)
 {
 /**
   PROCEDURE NewExt(f: File);
-    VAR i, k: INTEGER; ext: Index;
+    VAR i, k: INTEGER; ext!: Index;
   BEGIN k := (f.aleng - STS) DIV XS;
     NEW(ext); ext.adr := 0; ext.mod := TRUE; f.ext[k] := ext; i := XS;
     REPEAT DEC(i); ext.sec[i] := 0 UNTIL i = 0
@@ -702,16 +747,16 @@ static void NewExt(Files_File f)
     int i, k; Index ext;
 
     k = (f->aleng - STS) / XS;
-    assert(k<FileDir_ExTabSize);
+    assert(k<ExTabSize);
     ext = malloc(sizeof *ext); assert(ext); memset(ext, 0, sizeof *ext); ext->adr = 0; ext->mod = true; f->ext[k] = ext; i = XS;
     do { i--; ext->sec[i] = 0; } while (!(i == 0));
 }
 
-void Files_Write(Files_Rider *r, const char ch)
+void Write(Rider *r, const char ch)
 {
 /**
   PROCEDURE Write*(VAR r: Rider; ch: CHAR);
-    VAR f: File; buf: Buffer;
+    VAR f!: File; buf!: Buffer;
   BEGIN (*same as WriteByte*)
     IF r.apos # r.buf.apos THEN r.buf := GetBuf(r.file, r.apos); END ;
     IF r.bpos >= r.buf.lim THEN
@@ -731,7 +776,7 @@ void Files_Write(Files_Rider *r, const char ch)
     r.buf.data[r.bpos] := ORD(ch); INC(r.bpos); r.buf.mod := TRUE
   END Write;
 */
-    Files_File f; Files_Buffer buf;
+    File f; Buffer buf;
 
     /*same as WriteByte*/
     if (r->apos != r->buf->apos) { r->buf = GetBuf(r->file, r->apos); }
@@ -761,7 +806,7 @@ static int mark(int f, int *nxt) {
     END mark;
 */
     int m;
-    Files_File f1 = (Files_File) f;
+    File f1 = (File) f;
 
     *nxt = f;
 
@@ -771,12 +816,12 @@ static int mark(int f, int *nxt) {
     if (m == 0) {
         *nxt = f1->next;
         /* Restituer au système la mémoire allouée au descripteur de fichiers */
-        Files_Buffer buf;
+        Buffer buf;
         int i;
 
         buf = f1->firstbuf;
         do {
-            Files_Buffer next;
+            Buffer next;
 
             next = buf->next;
             free(buf);
@@ -784,7 +829,7 @@ static int mark(int f, int *nxt) {
         } while (buf != f1->firstbuf);
 
         i = 0;
-        while (i < FileDir_ExTabSize && f1->ext[i] != NULL) { free(f1->ext[i]); i++; }
+        while (i < ExTabSize && f1->ext[i] != NULL) { free(f1->ext[i]); i++; }
 
         free(f1);
     }
@@ -792,20 +837,14 @@ static int mark(int f, int *nxt) {
     return m;
 }
 
-void Files_RestoreList(void)
+void RestoreList(void)
 {
 /**
   PROCEDURE RestoreList*; (*after mark phase of garbage collection*)
     VAR f, f0: INTEGER;
 
-    PROCEDURE mark(f: INTEGER): INTEGER;
-      VAR m: INTEGER;
-    BEGIN
-      IF f = 0 THEN m := -1 ELSE SYSTEM.GET(f-4, m) END ;
-      RETURN m
-    END mark;
-
   BEGIN (*field "next" has offset 0*)
+    BSP.ledsOnOff({4}, {});
     WHILE mark(root) = 0 DO SYSTEM.GET(root, root) END ;
     f := root;
     WHILE f # 0 DO
@@ -820,23 +859,13 @@ void Files_RestoreList(void)
     while (mark(root, &next) == 0) root = next;
     f = root;
     while (f != 0) {
-        f0 = ((Files_File) f)->next;
+        f0 = ((File) f)->next;
         while (mark(f0, &next) == 0) f0 = next;
-        ((Files_File) f)->next = f0; f = f0;
+        ((File) f)->next = f0; f = f0;
     }
 }
 
-Files_File Files_Base(Files_Rider *r)
-{
-/**
-  PROCEDURE Base*(VAR r: Rider): File;
-  BEGIN RETURN r.file
-  END Base;
-*/
-  return r->file;
-}
-
-void Files_Init(void)
+void Files_Init(int fssec)
 {
 /**
   PROCEDURE Init*;
@@ -844,6 +873,5 @@ void Files_Init(void)
   END Init;
 */
     root = 0;
-    Kernel_Init();
-    FileDir_Init();
+    FileDir_Init(&fshd, fssec);
 }

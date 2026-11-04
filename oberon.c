@@ -70,9 +70,9 @@ static void *oberon_init(struct fuse_conn_info *conn,
 
 	cfg->kernel_cache = 1;
 
-	Modules_Set_OberonFS_image(oberon_fs_file_desc, options.oberon_image_offset);
+	Set_OberonFS_image(oberon_fs_file_desc);
 
-    Modules_Init();
+    Modules_Init(options.oberon_image_offset);
 
 	return NULL;
 }
@@ -109,21 +109,21 @@ static int oberon_getattr(const char *path, struct stat *stbuf,
 
 	int adr;
 
-	memset(stbuf, 0, sizeof(struct stat));
+	memset(stbuf, 0, sizeof *stbuf);
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0777;
 		stbuf->st_nlink = 2;
 	} else  {
-        FileDir_Search(path+1, &adr);
+        Search(&fshd, path+1, &adr);
         if (adr) {
-            FileDir_FileHeader hp;
+            FileHeader hp;
 
-            Kernel_GetSector(adr, (uint8_t *) &hp);
+            GetSector(&fshd, adr, (uint8_t *) &hp);
 
             stbuf->st_mode = S_IFREG | 0666;
             stbuf->st_nlink = 1;
-            stbuf->st_size = hp.aleng*FileDir_SectorSize + hp.bleng - FileDir_HeaderSize /* length */;
-            stbuf->st_mtim.tv_sec = ClockToTime(hp.date);
+            stbuf->st_size = hp.b.aleng*SectorSize + hp.b.bleng - HeaderSize /* length */;
+            stbuf->st_mtim.tv_sec = ClockToTime(hp.b.date);
         } else {
             res = -ENOENT;
         }
@@ -136,7 +136,7 @@ struct readdir_parameters {
     void *buf;
 };
 
-void List(FileDir_FileName name, int sec, bool *Continue, void *callerData)
+void List(FileName name, int sec, int date, int size, bool *Continue, void *callerData)
 {
     struct readdir_parameters *par = callerData;
 	par->filler(par->buf, name, NULL, 0, 0);
@@ -161,17 +161,17 @@ static int oberon_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	filler(buf, ".", NULL, 0, 0);
 	filler(buf, "..", NULL, 0, 0);
-    FileDir_Enumerate("", List, &par);
+    Enumerate(&fshd, "", List, &par);
 
 	return 0;
 }
 
 static int oberon_open(const char *path, struct fuse_file_info *fi)
 {
-    Files_File f;
-    Files_Rider *Rf;
+    File f;
+    Rider *Rf;
 
-    f = Files_Old(path+1);
+    f = Old(path+1);
 
     if (f == NULL) {
 		return -ENOENT;
@@ -180,7 +180,7 @@ static int oberon_open(const char *path, struct fuse_file_info *fi)
     Rf = malloc(sizeof *Rf);
     assert(Rf); memset(Rf, 0, sizeof *Rf);
 
-    Files_Set(Rf, f, 0);
+    Set(Rf, f, 0);
 
     fi->fh = (int) Rf;
 
@@ -191,17 +191,17 @@ static int oberon_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
 	int i;
-    Files_Rider *Rf;
+    Rider *Rf;
     char ch;
 
     assert(fi);
-    Rf = (Files_Rider *) (int) fi->fh;
+    Rf = (Rider *) (int) fi->fh;
     assert(Rf);
 
-    Files_Reset(Rf, offset);
-    Files_Read(Rf, &ch);
+    Reset(Rf, offset);
+    Read(Rf, &ch);
     i = 0;
-    while (!Rf->eof && i<size) { buf[i++] = ch; Files_Read(Rf, &ch); }
+    while (!Rf->eof && i<size) { buf[i++] = ch; Read(Rf, &ch); }
 
 	return i;
 }
@@ -210,34 +210,34 @@ static int oberon_write(const char *path, const char *buf, size_t size,
 		     off_t offset, struct fuse_file_info *fi)
 {
     int i;
-    Files_Rider *Rf;
+    Rider *Rf;
 
     assert(fi);
-    Rf = (Files_Rider *) (int) fi->fh;
+    Rf = (Rider *) (int) fi->fh;
     assert(Rf);
 
-    Files_Reset(Rf, offset);
+    Reset(Rf, offset);
     i = 0;
-    while (i<size) Files_Write(Rf, buf[i++]);
+    while (i<size) Write(Rf, buf[i++]);
 
     return i;
 }
 
 int oberon_release (const char *path, struct fuse_file_info *fi)
 {
-    Files_Rider *Rf;
-    Files_File f;
+    Rider *Rf;
+    File f;
 
     assert(fi);
-    Rf = (Files_Rider *) (int) fi->fh;
+    Rf = (Rider *) (int) fi->fh;
     assert(Rf);
 
-    f = Files_Base(Rf);
+    f = Base(Rf);
     assert(f);
 
-    Files_Close(f);
+    Close(f);
 
-    Files_Unset(Rf);
+    Unset(Rf);
 
     free(Rf);
 
@@ -248,23 +248,23 @@ static int oberon_truncate(const char *path, off_t size,
 			struct fuse_file_info *fi)
 {
 	int res;
-	Files_File f;
+	File f;
 
 	if (fi != NULL) {
-        Files_Rider *Rf = (Files_Rider *) (int) fi->fh;
+        Rider *Rf = (Rider *) (int) fi->fh;
 
         assert(Rf);
 
-        f = Files_Base(Rf);
+        f = Base(Rf);
 	} else {
-        f = Files_Old(path+1);
+        f = Old(path+1);
 	}
 
 	if (f == NULL) {
 		return -ENOENT;
 	}
 
-    Files_Truncate(f, size, &res);
+    Truncate(f, size, &res);
 
 	if (res != -0)
 		return -EFBIG;
@@ -276,21 +276,21 @@ static int oberon_truncate(const char *path, off_t size,
 static int oberon_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
 {
-    Files_File f;
-    Files_Rider *Rf;
+    File f;
+    Rider *Rf;
 
-    f = Files_New(path+1);
+    f = New(path+1);
 
     if (f == NULL) {
 		return -ENOENT;
     }
 
-    Files_Register(f);
+    Register(f);
 
     Rf = malloc(sizeof *Rf);
     assert(Rf); memset(Rf, 0, sizeof *Rf);
 
-    Files_Set(Rf, f, 0);
+    Set(Rf, f, 0);
 
     fi->fh = (int) Rf;
 
@@ -304,7 +304,7 @@ static int oberon_rename(const char *from, const char *to, unsigned int flags)
 	if (flags)
 		return -EINVAL;
 
-    Files_Rename(from, to, &res);
+    Rename(from, to, &res);
 	if (res > 1)
 		return -ENOENT;
 
@@ -315,7 +315,7 @@ static int oberon_unlink(const char *path)
 {
 	int res;
 
-	Files_Delete(path+1, &res);
+	Delete(path+1, &res);
 	if (res != 0)
 		return -ENOENT;
 
