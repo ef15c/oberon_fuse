@@ -62,54 +62,62 @@ void Kernel_FreeSector(int sec)
 void Kernel_GetSector(int src, Kernel_Sector dst)
 {
 /**
-  PROCEDURE GetSector*(src: INTEGER; VAR dst: Sector);
-  BEGIN src := src DIV 29; ASSERT(SYSTEM.H(0) = 0);
-    src := src * 2 + FSoffset;
-    ReadSD(src, SYSTEM.ADR(dst)); ReadSD(src+1, SYSTEM.ADR(dst)+512)
+  PROCEDURE GetSector*(src29: INTEGER; VAR dst: Sector);
+    VAR src: INTEGER;
+  BEGIN src := src29 DIV 29; ASSERT(src29 = src*29);
+    src := src * (SectorLength DIV SDBlockSize) + FSoffset;
+    ReadSD(src, SYSTEM.ADR(dst), SectorLength DIV SDBlockSize)
   END GetSector;
 */
     off_t pos;
     ssize_t nbRead;
 
     assert (src % 29 == 0); src /= 29;
-    pos = lseek(Modules_OberonFS_fd, src*1024 + Modules_OberonFS_offset, SEEK_SET);
+    pos = lseek(Modules_OberonFS_fd, src*Kernel_SectorLength + Modules_OberonFS_offset, SEEK_SET);
     assert (pos >= 0);
-    nbRead = read(Modules_OberonFS_fd, dst, 1024);
-    assert (nbRead == 1024);
+    nbRead = read(Modules_OberonFS_fd, dst, Kernel_SectorLength);
+    assert (nbRead == Kernel_SectorLength);
 }
 
 void Kernel_PutSector(int dst, Kernel_Sector src)
 {
 /**
-  PROCEDURE PutSector*(dst: INTEGER; VAR src: Sector);
-  BEGIN dst := dst DIV 29; ASSERT(SYSTEM.H(0) =  0);
-    dst := dst * 2 + FSoffset;
-    WriteSD(dst, SYSTEM.ADR(src)); WriteSD(dst+1, SYSTEM.ADR(src)+512)
+  PROCEDURE PutSector*(dst29: INTEGER; VAR src: Sector);
+    VAR dst: INTEGER;
+  BEGIN dst := dst29 DIV 29; ASSERT(dst29 = dst*29);
+    dst := dst * (SectorLength DIV SDBlockSize) + FSoffset;
+    WriteSD(dst, SYSTEM.ADR(src), SectorLength DIV SDBlockSize);
   END PutSector;
 */
     off_t pos;
     ssize_t nbWriten;
 
     assert(dst % 29 == 0); dst /= 29;
-    pos = lseek(Modules_OberonFS_fd, dst*1024 + Modules_OberonFS_offset, SEEK_SET);
+    pos = lseek(Modules_OberonFS_fd, dst*Kernel_SectorLength + Modules_OberonFS_offset, SEEK_SET);
     assert (pos >= 0);
-    nbWriten = write(Modules_OberonFS_fd, src, 1024);
-    assert(nbWriten == 1024);
+    nbWriten = write(Modules_OberonFS_fd, src, Kernel_SectorLength);
+    assert(nbWriten == Kernel_SectorLength);
 }
 
 void Kernel_InitSecMap(void)
 {
 /**
   PROCEDURE InitSecMap*;
-    VAR i: INTEGER;
-  BEGIN NofSectors := 0; sectorMap[0] := {0 .. 31}; sectorMap[1] := {0 .. 31};
-    FOR i := 2 TO mapsize DIV 32 - 1 DO sectorMap[i] := {} END
+    CONST NofReservedSectors = (BootReservedSize + SectorLength - 1) DIV SectorLength + 2;
+    VAR i, r: INTEGER;
+  BEGIN NofSectors := 0; i := 0;
+    WHILE i < NofReservedSectors DIV 32 DO sectorMap[i] := {0 .. 31}; INC(i) END;
+    r := NofReservedSectors MOD 32; IF r > 0 THEN sectorMap[i] := {0 .. r}; INC(i) END;
+    WHILE i < mapsize DIV 32 DO sectorMap[i] := {}; INC(i) END
   END InitSecMap;
 */
-    int i;
+    const int NofReservedSectors = (BootReservedSize + Kernel_SectorLength - 1) / Kernel_SectorLength + 2;
+    int i, r;
 
-    Kernel_NofSectors = 0; sectorMap[0] = 0xFFFFFFFF; sectorMap[1] = 0xFFFFFFFF;
-    for (i = 2; i <= mapsize / 32 - 1; i++) sectorMap[i] = 0;
+    Kernel_NofSectors = 0; i = 0;
+    while (i < NofReservedSectors / 32) { sectorMap[i] = 0xFFFFFFFF; i++; }
+    r = NofReservedSectors % 32; if (r > 0) { sectorMap[i] = (1 << r) - 1; i++; }
+    while (i < mapsize / 32) { sectorMap[i] = 0; i++; }
 }
 
 int Kernel_Clock(void)

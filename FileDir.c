@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "FileDir.h"
 #include "Kernel.h"
+#include "FileDir.h"
 
 #define N (FileDir_DirPgSize / 2)
 
@@ -87,11 +87,11 @@ static void MarkSectors(DiskAdr *A, int k)
           REPEAT DEC(j); Kernel.MarkSector(hd.sec[j]) UNTIL j = 0
         ELSE j := SecTabSize;
           REPEAT DEC(j); Kernel.MarkSector(hd.sec[j]) UNTIL j = 0;
-          n := (hd.aleng - SecTabSize) DIV 256; i := 0;
+          n := (hd.aleng - SecTabSize) DIV IndexSize; i := 0;
           WHILE i <= n DO
             Kernel.MarkSector(hd.ext[i]);
             Kernel.GetSector(hd.ext[i], B); (*index sector*)
-            IF i < n THEN j := 256 ELSE j := (hd.aleng - SecTabSize) MOD 256 + 1 END ;
+            IF i < n THEN j := IndexSize ELSE j := (hd.aleng - SecTabSize) MOD IndexSize + 1 END ;
             REPEAT DEC(j); Kernel.MarkSector(B[j]) UNTIL j = 0;
             INC(i)
           END
@@ -115,11 +115,11 @@ static void MarkSectors(DiskAdr *A, int k)
             do { j--; Kernel_MarkSector(hd.sec[j]); } while (!(j == 0));
         } else { j = FileDir_SecTabSize;
             do { j--; Kernel_MarkSector(hd.sec[j]); } while (!(j == 0));
-            n = (hd.aleng - FileDir_SecTabSize) / 256; i = 0;
+            n = (hd.aleng - FileDir_SecTabSize) / FileDir_IndexSize; i = 0;
             while (i <= n) {
                 Kernel_MarkSector(hd.ext[i]);
                 Kernel_GetSector(hd.ext[i], (uint8_t *) B); /*index sector*/
-                if (i < n) j = 256; else j = (hd.aleng - FileDir_SecTabSize) % 256 + 1;
+                if (i < n) j = FileDir_IndexSize; else j = (hd.aleng - FileDir_SecTabSize) % FileDir_IndexSize + 1;
                 do { j--; Kernel_MarkSector(B[j]); } while (!(j == 0));
                 i++;
             }

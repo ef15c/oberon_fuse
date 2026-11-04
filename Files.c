@@ -134,17 +134,17 @@ Files_File Files_Old(const char *name)
             f = (Files_File) root;
             while (f != NULL && f->sec[0] != header) { f = (Files_File) f->next; }
             if (f == NULL) { /*file not yet present*/
-                buf = malloc(sizeof *buf); assert(buf); buf->apos = 0; buf->next = buf; buf->mod = false;
+                buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf); buf->apos = 0; buf->next = buf; buf->mod = false;
                 F = (FileDir_FileHd) &buf->data;
                 Kernel_GetSector(header, (uint8_t *) buf->data); assert(F->mark == FileDir_HeaderMark);
-                f = malloc(sizeof *f); assert(f); f->aleng = F->aleng; f->bleng = F->bleng; f->date = F->date;
+                f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = F->aleng; f->bleng = F->bleng; f->date = F->date;
                 f->noRiders = 0;
                 if (f->aleng == 0) buf->lim = f->bleng; else buf->lim = SS;
                 f->firstbuf = buf; f->nofbufs = 1; memcpy(f->name, namebuf, sizeof f->name); f->registered = true;
                 memcpy(f->sec, F->sec, sizeof f->sec);
                 k = (f->aleng + (XS-STS)) / XS; i = 0;
                 while (i < k) {
-                    inxpg = malloc(sizeof *inxpg); assert(inxpg); inxpg->adr = F->ext[i]; inxpg->mod = false;
+                    inxpg = malloc(sizeof *inxpg); assert(inxpg); memset(inxpg, 0, sizeof *inxpg); inxpg->adr = F->ext[i]; inxpg->mod = false;
                     Kernel_GetSector(inxpg->adr, (uint8_t *) inxpg->sec); f->ext[i] = inxpg; i++;
                 }
                 while (i < FileDir_ExTabSize) { f->ext[i] = NULL; i++; }
@@ -190,12 +190,12 @@ Files_File Files_New(const char *name)
 
     f = NULL; Check(name, namebuf, &res);
     if (res <= 0) {
-        buf = malloc(sizeof *buf); assert(buf); buf->apos = 0; buf->mod = true; buf->lim = HS; buf->next = buf;
+        buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf); buf->apos = 0; buf->mod = true; buf->lim = HS; buf->next = buf;
         F = (FileDir_FileHd) &buf->data;
         F->mark = FileDir_HeaderMark;
         F->aleng = 0; F->bleng = HS; memcpy(F->name, namebuf, sizeof F->name);
         F->date = Kernel_Clock();
-        f = malloc(sizeof *f); assert(f); f->aleng = 0; f->bleng = HS; f->modH = true;
+        f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = 0; f->bleng = HS; f->modH = true;
         f->registered = false; f->date = F->date;
         f->firstbuf = buf; f->nofbufs = 1; memcpy(f->name, namebuf, sizeof f->name); f->sechint = 0;
         f->noRiders = 0;
@@ -358,7 +358,7 @@ static void WriteBuf(Files_File f, Files_Buffer buf)
         }
     } else { i = (buf->apos - STS) / XS; inx = f->ext[i];
         if (inx == NULL) {
-            inx = malloc(sizeof *inx); assert(inx); inx->adr = 0; inx->sec[0] = 0; f->ext[i] = inx; f->modH = true;
+            inx = malloc(sizeof *inx); assert(inx); memset(inx, 0, sizeof *inx); inx->adr = 0; inx->sec[0] = 0; f->ext[i] = inx; f->modH = true;
         }
         k = (buf->apos - STS) % XS; secadr = inx->sec[k];
         if (secadr == 0) {
@@ -393,7 +393,8 @@ static Files_Buffer GetBuf(Files_File f, int pos)
     while (buf->apos != pos && buf->next != f->firstbuf) buf = buf->next;
     if (buf->apos != pos) {
         if (f->nofbufs < MaxBufs) { /*allocate new buffer*/
-            buf = malloc(sizeof *buf); assert(buf); buf->next = f->firstbuf->next; f->firstbuf->next = buf; f->nofbufs++;
+            buf = malloc(sizeof *buf); assert(buf); memset(buf, 0, sizeof *buf);
+            buf->next = f->firstbuf->next; f->firstbuf->next = buf; f->nofbufs++;
         } else { /*reuse a buffer*/ f->firstbuf = buf;
             if (buf->mod) WriteBuf(f, buf);
         }
@@ -702,7 +703,7 @@ static void NewExt(Files_File f)
 
     k = (f->aleng - STS) / XS;
     assert(k<FileDir_ExTabSize);
-    ext = malloc(sizeof *ext); assert(ext); ext->adr = 0; ext->mod = true; f->ext[k] = ext; i = XS;
+    ext = malloc(sizeof *ext); assert(ext); memset(ext, 0, sizeof *ext); ext->adr = 0; ext->mod = true; f->ext[k] = ext; i = XS;
     do { i--; ext->sec[i] = 0; } while (!(i == 0));
 }
 

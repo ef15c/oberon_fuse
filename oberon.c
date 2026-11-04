@@ -178,7 +178,7 @@ static int oberon_open(const char *path, struct fuse_file_info *fi)
     }
 
     Rf = malloc(sizeof *Rf);
-    assert(Rf);
+    assert(Rf); memset(Rf, 0, sizeof *Rf);
 
     Files_Set(Rf, f, 0);
 
@@ -288,7 +288,7 @@ static int oberon_create(const char *path, mode_t mode,
     Files_Register(f);
 
     Rf = malloc(sizeof *Rf);
-    assert(Rf);
+    assert(Rf); memset(Rf, 0, sizeof *Rf);
 
     Files_Set(Rf, f, 0);
 

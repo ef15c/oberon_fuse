@@ -57,15 +57,28 @@
 		<Unit filename="FileDir.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="FileDir.h" />
+		<Unit filename="FileSystem.c">
+			<Option compilerVar="CC" />
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="FileSystem.h">
+			<Option target="Debug" />
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="Files.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="Files.h" />
 		<Unit filename="Kernel.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="Kernel.h" />
 		<Unit filename="Modules.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="Modules.h" />
 		<Unit filename="oberon.c">
 			<Option compilerVar="CC" />
 		</Unit>

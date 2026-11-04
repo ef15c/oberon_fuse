@@ -2,18 +2,19 @@
 #define FILEDIR_H_INCLUDED
 #include <stdint.h>
 #include <stdbool.h>
+#include "Kernel.h"
 
 #define FileDir_FnLength (32)
 #define FileDir_SecTabSize (64)
 #define FileDir_ExTabSize (12)
-#define FileDir_SectorSize (1024)
+#define FileDir_SectorSize (Kernel_SectorLength)
 #define FileDir_IndexSize (FileDir_SectorSize / 4)
 #define FileDir_HeaderSize (352)
 #define FileDir_DirRootAdr (29)
-#define FileDir_DirPgSize (24)
+#define FileDir_DirPgSize ((FileDir_SectorSize - 12) / 40 / 4*4)
 #define FileDir_DirMark    (0x9B1EA38D)
 #define FileDir_HeaderMark (0x9BA71D86)
-#define FileDir_FillerSize (52)
+#define FileDir_FillerSize (FileDir_SectorSize - 12 - FileDir_DirPgSize*40)
 
 typedef char FileDir_FileName[FileDir_FnLength];
 typedef int  FileDir_ExtensionTable[FileDir_ExTabSize];
