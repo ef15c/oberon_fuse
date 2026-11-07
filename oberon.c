@@ -47,17 +47,17 @@
  */
 static struct options {
 	int show_help;
-	const char *oberon_image;
-	int oberon_image_offset;
+	const char *image;
+	int image_offset;
 } options;
 
-int oberon_fs_file_desc = -1;
+static int fs_file_desc = -1;
 
 #define OPTION(t, p)                           \
     { t, offsetof(struct options, p), 1 }
 static const struct fuse_opt option_spec[] = {
-    OPTION("--image=%s", oberon_image),
-    OPTION("--offset=%d", oberon_image_offset),
+    OPTION("--image=%s", image),
+    OPTION("--offset=%d", image_offset),
 	OPTION("-h", show_help),
 	OPTION("--help", show_help),
 	FUSE_OPT_END
@@ -70,9 +70,9 @@ static void *oberon_init(struct fuse_conn_info *conn,
 
 	cfg->kernel_cache = 1;
 
-	Set_OberonFS_image(oberon_fs_file_desc);
+	Set_OberonFS_image(fs_file_desc);
 
-    Modules_Init(options.oberon_image_offset);
+    Modules_Init(options.image_offset);
 
 	return NULL;
 }
@@ -235,7 +235,7 @@ int oberon_release (const char *path, struct fuse_file_info *fi)
     f = Base(Rf);
     assert(f);
 
-    Close(f);
+    Register(f);
 
     Unset(Rf);
 
@@ -344,13 +344,8 @@ static void show_help(const char *progname)
 	       "    --offset=<signed value>  Number of bytes of offset to the\n"
 	       "                             beginning of the file system.\n"
 	       "\n"
-	       "                             0 means that the directory root\n"
-	       "                             is located ad address 0x400.\n"
-	       "\n"
-	       "                             The RISCW32 emulator images have\n"
-	       "                             their directory root located at 0x0\n"
-	       "                             so offset equal to -1024 must be\n"
-	       "                             specified\n"
+	       "                             0 means that the filesystem header\n"
+	       "                             is located ad address 0.\n"
 	       "\n");
 }
 
@@ -376,14 +371,14 @@ int main(int argc, char *argv[])
 		assert(fuse_opt_add_arg(&args, "--help") == 0);
 		args.argv[0][0] = '\0';
 	} else {
-        if (!options.oberon_image) {
+        if (!options.image) {
             printf("Missing mandatory --image=<oberon image> parameter\n");
             return 2;
         }
 
-        oberon_fs_file_desc = open(options.oberon_image, O_RDWR);
-        if (oberon_fs_file_desc < 0) {
-            printf("Unable to open file %s for read\n", options.oberon_image);
+        fs_file_desc = open(options.image, O_RDWR);
+        if (fs_file_desc < 0) {
+            printf("Unable to open file %s for read\n", options.image);
             return 3;
         }
 	}
@@ -392,8 +387,8 @@ int main(int argc, char *argv[])
 	ret = fuse_main(args.argc, args.argv, &oberon_oper, NULL);
 	fuse_opt_free_args(&args);
 
-    if (oberon_fs_file_desc >= 0) {
-        close(oberon_fs_file_desc);
+    if (fs_file_desc >= 0) {
+        close(fs_file_desc);
     }
 
 	return ret;

@@ -84,11 +84,10 @@ static void Check(const char *s, FileName name, int *res)
 File OldByAdr(DiskAdr header) {
 /*
   PROCEDURE OldByAdr*(header: DiskAdr): File;
-    VAR i, k, res: INTEGER;
+    VAR i, k: INTEGER;
       f!: File;
       buf!: Buffer;
       F!: FileDir.FileHd;
-      namebuf: FileDir.FileName;
       inxpg!: Index;
   BEGIN f := NIL;
     IF header # 0 THEN
@@ -99,9 +98,9 @@ File OldByAdr(DiskAdr header) {
         FileSystem.GetSector(fshd, header, buf.data);
         F := SYSTEM.VAL(FileDir.FileHd, SYSTEM.ADR(buf.data));
         IF F.mark = FileDir.HeaderMark THEN
-          NEW(f); f.aleng := F.aleng; f.bleng := F.bleng; f.date := F.date;
+          NEW(f); f.name := F.name; f.aleng := F.aleng; f.bleng := F.bleng; f.date := F.date;
           IF f.aleng = 0 THEN buf.lim := f.bleng ELSE buf.lim := SS END ;
-          f.firstbuf := buf; f.nofbufs := 1; f.name := namebuf; f.registered := TRUE;
+          f.firstbuf := buf; f.nofbufs := 1; f.registered := TRUE;
           f.sec := F.sec;
           k := (f.aleng + (XS-STS)) DIV XS; i := 0;
           WHILE i < k DO
@@ -120,7 +119,6 @@ File OldByAdr(DiskAdr header) {
     File f;
     Buffer buf;
     FileHd F;
-    FileName namebuf;
     Index inxpg;
 
     f = NULL;
@@ -132,10 +130,11 @@ File OldByAdr(DiskAdr header) {
             GetSector(&fshd, header, (uint8_t *) buf->data);
             F = (FileHd) &buf->data;
             if (F->b.mark == HeaderMark) {
-                f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f); f->aleng = F->b.aleng; f->bleng = F->b.bleng; f->date = F->b.date;
+                f = malloc(sizeof *f); assert(f); memset(f, 0, sizeof *f);
+                memcpy(f->name, F->b.name, sizeof f->name); f->aleng = F->b.aleng; f->bleng = F->b.bleng; f->date = F->b.date;
                 f->noRiders = 0;
                 if (f->aleng == 0) buf->lim = f->bleng; else buf->lim = SS;
-                f->firstbuf = buf; f->nofbufs = 1; memcpy(f->name, namebuf, sizeof f->name); f->registered = true;
+                f->firstbuf = buf; f->nofbufs = 1; f->registered = true;
                 memcpy(f->sec, F->b.sec, sizeof f->sec);
                 k = (f->aleng + (XS-STS)) / XS; i = 0;
                 while (i < k) {
@@ -174,7 +173,7 @@ File Old(const char *name)
     f = NULL; Check(name, namebuf, &res);
     if (res == 0) {
         Search(&fshd, namebuf, &header);
-        if (header != 0) { OldByAdr(header); assert(f != NULL); }
+        if (header != 0) { f = OldByAdr(header); assert(f != NULL); }
     }
     return f;
 }

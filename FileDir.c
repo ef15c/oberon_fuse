@@ -651,7 +651,7 @@ void FileDir_Init(FSHeader *fshd, int fssec)
     assert (nbRead == SectorSize);
     assert(fshdp.b.b.mark == FSMark); assert(fshdp.b.b.version == 2);
 
-    memset(fshd, 0, sizeof *fshd); memcpy(fshd, &fshdp, sizeof fshdp);
+    memset(fshd, 0, sizeof *fshd); memcpy(fshd, &fshdp, sizeof(FSHeaderPersistent));
     fshd->FS_OFFSET = fssec; InitSecMap(fshd);
     k = 0; TraverseDir(fshd, A, &k, DirRootAdr); MarkSectors(fshd, A, k);
 }
